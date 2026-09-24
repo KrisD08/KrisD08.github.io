@@ -7,3 +7,4 @@ Thumbs.db
 # Dependencias de Node (se reinstalan con npm install)
 node_modules/
 npm-debug.log*
+_tmp-lab02/
