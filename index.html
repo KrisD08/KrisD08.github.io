@@ -218,6 +218,71 @@
       font-size: 13px;
     }
 
+    /* LIBRO DE VISITAS */
+    #form-mensaje {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    #form-mensaje label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--secundario);
+    }
+
+    #form-mensaje input,
+    #form-mensaje textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--borde);
+      border-radius: 10px;
+      font: inherit;
+      color: var(--texto);
+      background: white;
+    }
+
+    #form-mensaje button {
+      justify-self: start;
+      border: none;
+      cursor: pointer;
+    }
+
+    #form-estado {
+      margin: 0;
+      font-size: 13px;
+      color: var(--morado-oscuro);
+    }
+
+    #lista-mensajes {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    #lista-mensajes li {
+      padding: 16px;
+      border: 1px solid var(--borde);
+      border-radius: 14px;
+      background: var(--lila);
+    }
+
+    #lista-mensajes strong {
+      color: var(--morado-oscuro);
+    }
+
+    #lista-mensajes time {
+      margin-left: 8px;
+      font-size: 12px;
+      color: var(--secundario);
+    }
+
+    #lista-mensajes p {
+      margin: 6px 0 0;
+    }
+
     .tarjeta-perfil {
       position: relative;
       overflow: hidden;
@@ -945,6 +1010,40 @@
         </a>
       </div>
     </section>
+
+    <!-- ═══ LIBRO DE VISITAS: LAB-02 ═══
+         Arranca oculta: libro-de-visitas.js la muestra solo si detecta
+         que /api/ responde. Así en GitHub Pages (sin backend) esta
+         sección simplemente no aparece y el resto del perfil sigue igual. -->
+    <section
+      id="libro-de-visitas"
+      class="seccion"
+      aria-labelledby="titulo-libro"
+      hidden
+    >
+      <p class="numero">05 / Libro de visitas</p>
+      <h2 id="titulo-libro" class="titulo-seccion">Déjame un mensaje.</h2>
+
+      <p class="descripcion-seccion">
+        Este formulario habla con una API en contenedores que levanté
+        para el LAB-02. Si la ves, es porque el backend está corriendo.
+      </p>
+
+      <div class="tarjeta">
+        <form id="form-mensaje">
+          <label for="lv-nombre">Tu nombre</label>
+          <input id="lv-nombre" name="nombre" maxlength="60" required>
+
+          <label for="lv-mensaje">Tu mensaje</label>
+          <textarea id="lv-mensaje" name="mensaje" maxlength="280" rows="3" required></textarea>
+
+          <button class="boton" type="submit">Dejar mensaje</button>
+          <p id="form-estado" role="status"></p>
+        </form>
+
+        <ul id="lista-mensajes"></ul>
+      </div>
+    </section>
   </main>
 
   <footer>
@@ -953,5 +1052,7 @@
       <p>Hecho con Git y GitHub Pages · IF-1116 · 2026-II</p>
     </div>
   </footer>
+
+  <script src="libro-de-visitas.js" defer></script>
 </body>
 </html>
