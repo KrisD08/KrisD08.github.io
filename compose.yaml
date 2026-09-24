@@ -1,0 +1,75 @@
+# compose.yaml — LAB-02
+#
+# Dos redes definidas por el usuario (Reto 4):
+#   - frontend: conecta web <-> api
+#   - backend:  conecta api <-> db
+#   "api" es el único servicio en ambas. "web" nunca llega a "db" porque
+#   no comparten ninguna red: no es una regla de firewall, es que
+#   literalmente no hay ningún cable entre ellos.
+#
+# Solo "web" publica un puerto hacia el host ("ports"). "api" y "db" no
+# tienen "ports": siguen escuchando dentro de su red, pero son
+# inalcanzables desde fuera de Docker.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  db:
+    build:
+      context: ./db
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-libro}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  pgdata:

@@ -1,5 +1,9 @@
 .DS_Store
 Thumbs.db
+
+# Nunca se commitea: usa .env.example como plantilla
 .env
 
-_tmp-lab02/
+# Dependencias de Node (se reinstalan con npm install)
+node_modules/
+npm-debug.log*
