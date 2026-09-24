@@ -1,0 +1,60 @@
+# .github/workflows/publish-ghcr.yml — LAB-02, criterio B5
+#
+# Construye "web" y "api" y las publica en GHCR cada vez que creas un
+# tag "v*" (por ejemplo v1.0). Usa el GITHUB_TOKEN automático del repo,
+# no hace falta ningún secreto adicional.
+#
+# Para publicar la versión 1.0:
+#   git tag v1.0
+#   git push origin v1.0
+
+name: Publicar imágenes en GHCR
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}   # también puedes lanzarlo a mano desde la pestaña Actions
+
+permissions:
+  contents: read
+  packages: write   # necesario para poder escribir en GHCR
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - servicio: web
+            contexto: .
+            dockerfile: web/Dockerfile
+          - servicio: api
+            contexto: ./api
+            dockerfile: api/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calcular tag fijo (sin "latest")
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Iniciar sesión en GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir y publicar perfil-${{ matrix.servicio }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.contexto }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/perfil-${{ matrix.servicio }}:${{ steps.tag.outputs.tag }}
