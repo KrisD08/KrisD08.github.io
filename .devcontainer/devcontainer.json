@@ -1,0 +1,35 @@
+{
+  "name": "Perfil con libro de visitas (LAB-02)",
+
+  // Imagen base simple + la feature "docker-in-docker": nos da el CLI de
+  // Docker y Compose dentro del propio Codespace, para poder correr
+  // "docker compose up" como en tu máquina.
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  // Reenvía el puerto de "web" y hace que el navegador se abra solo
+  // cuando el puerto queda disponible. Sin esto, B3 no se cumple aunque
+  // los contenedores levanten bien: nadie vería nada automáticamente.
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Perfil + libro de visitas",
+      "onAutoForward": "openBrowser"
+    }
+  },
+
+  // postCreateCommand corre UNA sola vez, cuando el Codespace se crea.
+  // Aquí generamos el .env a partir de la plantilla si todavía no existe:
+  // así el Codespace arranca solo (B3) sin que jamás haya un secreto real
+  // en el repositorio (Reto 6). El valor de ejemplo es una credencial de
+  // desarrollo desechable, no una de producción.
+  "postCreateCommand": "[ -f .env ] || cp .env.example .env",
+
+  // postStartCommand corre CADA VEZ que el contenedor arranca (creación
+  // y cada reinicio). "--wait" hace que el comando no termine hasta que
+  // los healthchecks de los tres servicios estén en "healthy" (Reto 2):
+  // así el navegador nunca se abre antes de que la app esté lista.
+  "postStartCommand": "docker compose up -d --build --wait"
+}
