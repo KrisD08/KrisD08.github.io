@@ -1,0 +1,7 @@
+services:
+  web:
+    image: mi-perfil-nginx
+    build:
+      context: .
+    ports:
+      - "8080:80"
