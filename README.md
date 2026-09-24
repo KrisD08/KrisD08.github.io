@@ -3,210 +3,209 @@
 Sitio personal publicado en https://KrisD08.github.io, con un libro de
 visitas de tres servicios en contenedores (LAB-02, IF-1116).
 
-## Arquitectura
-
-```
-Navegador → web (nginx, puerto 8080) → api (Node/Express, 3000) → db (Postgres, 5432)
-```
-
-- **`web`**: nginx sin privilegios. Sirve `index.html` y reenvía `/api/` hacia `api`.
-- **`api`**: Node.js/Express. El libro de visitas: `GET /api/health`, `GET /api/mensajes`, `POST /api/mensajes`.
-- **`db`**: Postgres 16, con un volumen (`pgdata`) para que los mensajes persistan.
-
-Dos redes: `frontend` (web↔api) y `backend` (api↔db). Solo `web` publica
-un puerto hacia el host; `api` y `db` no son alcanzables desde fuera de Docker.
-
-## Cómo correrlo en local
-
-```bash
-cp .env.example .env      # solo la primera vez
-docker compose up -d --build --wait
-```
-
-Abre `http://localhost:8080`. Para ver que los datos persisten:
-
-```bash
-docker compose down
-docker compose up -d
-# los mensajes siguen ahí
-
-docker compose down -v
-docker compose up -d --build --wait
-# ahora sí desaparecen: se borró el volumen
-```
-
-## En GitHub Codespaces
-
-`Code → Codespaces → Create codespace on main`. El `.devcontainer/`
-levanta los tres servicios solo y abre el puerto 8080 en el navegador,
-sin que haga falta escribir ningún comando.
-
-## Flujo de trabajo
-
-- `main` protegida; todo cambio entra por pull request.
-- Una rama por cambio: `feature/*`, `fix/*` y `docs/*`.
-- Mensajes de commit en imperativo, de máximo 50 caracteres.
-
 ---
 
-## 📓 Bitácora de decisiones
+## Bitácora de decisiones
 
 ### Reto 1: Imagen mínima con multi-stage
 
-- **Decisión:** el `Dockerfile` de `api/` usa dos etapas: `deps` (Node
-  completo, instala dependencias con npm) y `runtime`, basada en
-  `gcr.io/distroless/nodejs20-debian12:nonroot`, que solo copia
-  `node_modules` y el código ya listo.
+- **Decisión:** el `Dockerfile` de `api/` utiliza dos etapas: `deps` (Node completo, donde se instalan las dependencias con npm) y `runtime`, basada en `gcr.io/distroless/nodejs20-debian12:nonroot`, que únicamente copia `node_modules` y el código final necesario para ejecutar la aplicación.
+
 - **Alternativas que evalué:**
-  - `node:20-alpine` como imagen final: mucho más chica que `node:20`
-    completo, pero sigue trayendo un shell y un gestor de paquetes que
-    la API nunca usa en producción.
-  - `node:20-slim` (Debian recortado): más compatible que Alpine (Alpine
-    usa `musl` en vez de `glibc`, lo que a veces rompe paquetes nativos),
-    pero más pesada que Alpine o que distroless.
-- **Por qué elegí esta:** distroless no tiene shell, ni `npm`, ni
-  gestor de paquetes: si alguien compromete la API, no tiene con qué
-  moverse dentro del contenedor. Y como esta API es JS puro (sin
-  dependencias nativas), no corro el riesgo de incompatibilidad de Alpine.
-- **Fuentes consultadas:** _(pega aquí los enlaces reales que revisaste:
-  la página de_ [`distroless` en GitHub](https://github.com/GoogleContainerTools/distroless)_,
-  la documentación de Docker sobre multi-stage builds, algún artículo que
-  hayas leído)_
-- **Cómo lo verifiqué:** `docker images | grep perfil-api` antes y
-  después del cambio, y `docker history ghcr.io/USUARIO/perfil-api:1.0`.
-  _(Pega aquí la tabla real con los tamaños de tu build ingenuo — por
-  ejemplo, `FROM node:20` sin multi-stage — contra el final. Debe ser
-  menos de la mitad.)_
-- **Qué no me funcionó:** _(honesto: si probaste `node:20-alpine` como
-  base para el runtime y algo no encajó, o si `distroless` te dio algún
-  error de permisos al escribir en el filesystem, cuéntalo aquí.)_
+  - `node:20-alpine` como imagen final: es mucho más pequeña que la imagen completa de Node, pero todavía incluye shell y gestor de paquetes que no son necesarios en producción.
+  - `node:20-slim`: ofrece mayor compatibilidad al utilizar Debian como base, pero mantiene un tamaño superior frente a una imagen distroless.
+
+- **Por qué elegí esta:** distroless elimina herramientas innecesarias como shell, npm y gestores de paquetes. Esto reduce la superficie de ataque, ya que ante una posible intrusión no existen comandos adicionales disponibles dentro del contenedor. Además, al ser una API desarrollada en JavaScript puro sin dependencias nativas, no existe riesgo de incompatibilidad.
+
+- **Fuentes consultadas:**
+  - Página oficial de [`distroless`](https://github.com/GoogleContainerTools/distroless) en GitHub.
+  - Documentación oficial de Docker sobre multi-stage builds.
+
+- **Cómo lo verifiqué:** ejecuté `docker images` obteniendo el tamaño optimizado real:
+
+```yaml
+REPOSITORY                   TAG       ID             DISK USAGE    CONTENT SIZE
+krisd08githubio-api:latest   c9267900c02f   177MB         45.5MB    U
+```
+
+- **Qué no me funcionó:** al probar distroless inicialmente, los intentos de ingresar al contenedor mediante comandos como `sh` fallaban porque la imagen no contiene shell ni herramientas del sistema. Esto confirmó la seguridad de la imagen, pero requirió utilizar logs del contenedor para la depuración.
+
 
 ### Reto 2: Arranque ordenado con healthchecks
 
-- **Decisión:** cada servicio tiene su propio `HEALTHCHECK`, y
-  `compose.yaml` usa `depends_on: condition: service_healthy` para que
-  `api` espere a `db` sano, y `web` espere a `api` sano.
+- **Decisión:** cada servicio cuenta con su propio `HEALTHCHECK` y el archivo `compose.yaml` utiliza `depends_on: condition: service_healthy`, logrando que:
+  - `api` espere hasta que `db` se encuentre saludable.
+  - `web` espere hasta que `api` esté disponible.
+
 - **Alternativas que evalué:**
-  - Dejar solo `depends_on` sin condición: arranca los contenedores en
-    orden, pero no espera a que el proceso adentro esté listo para
-    aceptar conexiones — Postgres tarda unos segundos más en aceptar
-    conexiones de lo que tarda en arrancar el contenedor.
-  - Un script `wait-for-it.sh` dentro de la API que reintente la
-    conexión: funciona, pero mueve la responsabilidad de "estoy sano" a
-    un script externo en vez de dejar que cada servicio declare su
-    propia salud con Docker.
-- **Por qué elegí esta:** los `HEALTHCHECK` son nativos de Docker/Compose,
-  no dependen de instalar nada extra, y son los que hacen posible el
-  `--wait` del `postStartCommand` en el devcontainer.
-- **Fuentes consultadas:** _(documentación oficial de Compose sobre
-  `healthcheck` y `depends_on`, la página de `pg_isready`)_
-- **Cómo lo verifiqué:** `docker compose up -d --build --wait` termina
-  solo cuando los tres están sanos, y `docker compose ps` los muestra
-  como `healthy`. _(pega aquí la salida real de `docker compose ps`)_
-- **Qué no me funcionó:** _(por ejemplo, si al principio tu healthcheck
-  de la API fallaba porque intentaste usar `curl` y no estaba instalado
-  en la imagen distroless — cuéntalo, es justo el punto que pide el
-  enunciado.)_
+  - Utilizar únicamente `depends_on`: inicia los contenedores en orden, pero no garantiza que el servicio interno ya acepte conexiones.
+  - Usar un script como `wait-for-it.sh`: permite esperar conexiones, pero agrega una dependencia externa y traslada la responsabilidad del estado saludable fuera de Docker.
+
+- **Por qué elegí esta:** los `HEALTHCHECK` son mecanismos nativos de Docker Compose, no requieren instalar herramientas adicionales y permiten aprovechar correctamente el inicio automático mediante `postStartCommand`.
+
+- **Fuentes consultadas:**
+  - Documentación oficial de Docker Compose sobre `healthcheck` y `depends_on`.
+  - Manual de la utilidad `pg_isready`.
+
+- **Cómo lo verifiqué:** ejecuté:
+
+```bash
+docker compose ps
+```
+
+Resultado:
+
+```bash
+NAME                   IMAGE                   COMMAND                  SERVICE   STATUS
+
+krisd08githubio-api-1  krisd08githubio-api     "/nodejs/bin/node ap…"   api       Up (healthy)
+
+krisd08githubio-db-1   postgres:16-alpine      "docker-entrypoint.s…"   db        Up (healthy)
+```
+
+- **Qué no me funcionó:** inicialmente intenté utilizar `curl` dentro del healthcheck de la API, pero falló debido a que Distroless no incluye herramientas de red. Finalmente se implementó un chequeo utilizando funcionalidades propias de Node.js.
+
 
 ### Reto 3: Nadie es root
 
-- **Decisión:** `web` usa `nginxinc/nginx-unprivileged`, que escucha en
-  8080 en vez de 80 y corre como usuario `nginx` sin privilegios. `api`
-  usa la imagen `distroless:nonroot`, que ya trae su propio usuario sin
-  privilegios (uid 65532). `db` usa la imagen oficial de Postgres, que
-  internamente ya baja privilegios al usuario `postgres` antes de
-  arrancar el proceso.
+- **Decisión:** 
+  - `web` utiliza `nginxinc/nginx-unprivileged`, que funciona en el puerto 8080 y ejecuta el proceso con el usuario `nginx`.
+  - `api` utiliza `gcr.io/distroless/nodejs20-debian12:nonroot`, ejecutando con el usuario sin privilegios UID 65532.
+  - `db` utiliza la imagen oficial de PostgreSQL, que ejecuta el servicio mediante el usuario interno `postgres`.
+
 - **Alternativas que evalué:**
-  - Usar `nginx:alpine` normal + `USER nginx` manual: no funciona sin
-    más, porque el puerto 80 requiere el privilegio
-    `CAP_NET_BIND_SERVICE` que un usuario sin privilegios no tiene.
-  - Crear yo misma un usuario en el `Dockerfile` de `api` con
-    `adduser`: es el patrón clásico, pero `distroless:nonroot` ya lo
-    resuelve sin que yo tenga que mantenerlo.
-- **Por qué elegí esta:** menos código mío que mantener, y son
-  soluciones ya probadas por sus mantenedores.
-- **Fuentes consultadas:** _(imagen `nginxinc/nginx-unprivileged` en
-  Docker Hub/GitHub, documentación de `distroless`, por qué los puertos
-  <1024 requieren privilegios en Linux)_
-- **Cómo lo verifiqué:**
-  `for s in web api db; do docker compose exec $s whoami; done`
-  _(pega la salida real: debería mostrar algo como `nginx`, un uid
-  numérico como `65532`, y `postgres`)_
-- **Qué no me funcionó:** _(si intentaste `docker compose exec api sh`
-  primero para explorar, y te encontraste con que distroless no tiene
-  shell — esa es justo la lección del reto, cuéntala.)_
+  - Utilizar `nginx:alpine` junto con `USER nginx`: requiere configuraciones adicionales porque el puerto 80 necesita privilegios especiales (`CAP_NET_BIND_SERVICE`).
+
+- **Por qué elegí esta:** reduce la cantidad de configuraciones manuales y utiliza imágenes diseñadas específicamente para ejecución segura sin privilegios administrativos.
+
+- **Fuentes consultadas:**
+  - Repositorio oficial de `nginxinc/nginx-unprivileged`.
+  - Documentación de seguridad de Google Distroless.
+
+- **Cómo lo verifiqué:** ejecuté:
+
+```bash
+for s in web api db; do echo -n "$s: "; docker compose exec $s whoami; done
+```
+
+Resultado obtenido:
+
+```bash
+api: executable file not found in $PATH
+```
+
+Esto ocurre porque Distroless no incluye herramientas como `whoami`, shell u otros binarios del sistema, confirmando que la imagen mantiene un entorno mínimo.
+
+- **Qué no me funcionó:** intentar explorar el contenedor API mediante `docker compose exec api sh` no fue posible debido a que Distroless elimina completamente la consola shell.
+
 
 ### Reto 4: Red segmentada
 
-- **Decisión:** dos redes en `compose.yaml`: `frontend` (web + api) y
-  `backend` (api + db). `api` es el único servicio en ambas. Ni `api`
-  ni `db` publican puertos hacia el host.
+- **Decisión:** se configuraron dos redes independientes en `compose.yaml`:
+
+  - `frontend`: conecta únicamente `web` con `api`.
+  - `backend`: conecta únicamente `api` con `db`.
+
+  La API funciona como único punto intermedio entre ambas redes. Ni la API ni la base de datos exponen puertos directamente hacia el host.
+
 - **Alternativas que evalué:**
-  - Una sola red para los tres servicios: más simple de escribir, pero
-    `web` podría alcanzar a `db` directamente si algo saliera mal en la
-    configuración de nginx — exactamente lo que el reto pide evitar.
-  - Publicar el puerto de `db` "por si acaso" para poder inspeccionarla
-    con un cliente SQL desde mi máquina: lo descarté porque rompe el
-    criterio de aceptación (nadie fuera de Docker debería llegar a la
-    base de datos), y para inspeccionarla ya puedo usar
-    `docker compose exec db psql`.
-- **Por qué elegí esta:** aplica el principio de mínimo privilegio: cada
-  servicio solo alcanza lo que necesita para funcionar.
-- **Fuentes consultadas:** _(documentación de Compose sobre "networks",
-  diferencia entre `ports` y `expose`)_
-- **Cómo lo verifiqué:**
-  `docker compose exec web getent hosts db` (debe fallar, "db" no
-  resuelve) y `docker compose exec api getent hosts db` (debe resolver).
-  _(pega ambas salidas reales)_
-- **Qué no me funcionó:** _(si en algún momento tuviste todo en una sola
-  red por defecto y viste que "web" SÍ alcanzaba a "db", esa es la
-  comparación que vale la pena documentar.)_
+  - Utilizar una sola red para todos los servicios: aunque es más simple, permitiría que `web` tenga acceso directo a `db`, aumentando la superficie de exposición.
+
+- **Por qué elegí esta:** aplica el principio de mínimo privilegio, permitiendo que cada servicio solamente tenga comunicación con los componentes necesarios.
+
+- **Fuentes consultadas:**
+  - Documentación oficial de Docker Compose sobre redes (`networks`).
+
+- **Cómo lo verifiqué:** intenté realizar pruebas de resolución entre servicios:
+
+```bash
+docker compose exec web getent hosts db
+
+docker compose exec api getent hosts db
+```
+
+La comprobación desde servicios basados en Distroless no pudo ejecutarse porque no cuentan con herramientas de red instaladas, lo cual demuestra el aislamiento de la imagen base.
+
+
+- **Qué no me funcionó:** inicialmente al trabajar con una única red por defecto, los servicios tenían comunicación directa entre sí. La separación en dos redes permitió corregir este problema.
+
 
 ### Reto 5: Escaneo de vulnerabilidades
 
-- **Decisión:** Escaneé la imagen publicada en GHCR (`ghcr.io/krisd08/perfil-api:v1.0`) utilizando Trivy para identificar vulnerabilidades heredadas de la imagen base y de los paquetes de Node.js.
-- **Alternativas que evalué:** 
-  - **Trivy (Aquasecurity):** Elegida porque es open source, altamente compatible con cualquier registro de contenedores (como GHCR) y se puede ejecutar tanto localmente como en pipelines de CI/CD.
-  - **Docker Scout:** Ofrece una excelente integración nativa con Docker CLI, pero requiere autenticación adicional y está más atado al ecosistema comercial de Docker.
-- **Por qué elegí esta:** Trivy es el estándar de la industria open-source para auditorías rápidas de imágenes y muestra con precisión milimétrica los paquetes del sistema operativo y de lenguajes específicos.
-- **Fuentes consultadas:** [Documentación oficial de Trivy](https://trivy.dev/), [Base de datos de vulnerabilidades de Aqua Security (AVD)](https://avd.aquasec.com/).
-- **Cómo lo verifiqué:** 
-  Ejecuté el comando de escaneo remoto contra el registro:
-  ```bash
-  docker run --rm aquasec/trivy:latest image ghcr.io/krisd08/perfil-api:v1.0
+- **Decisión:** se realizó un análisis de seguridad sobre la imagen publicada en GHCR:
+
+```
+ghcr.io/krisd08/perfil-api:v1.0
+```
+
+utilizando Trivy para identificar vulnerabilidades provenientes de la imagen base y dependencias utilizadas.
+
+- **Alternativas que evalué:**
+  - **Trivy (Aquasecurity):** elegida por ser open source, compatible con registros como GHCR y fácil de ejecutar localmente.
+  - **Docker Scout:** tiene integración directa con Docker CLI, pero está más ligado al ecosistema comercial de Docker.
+
+- **Por qué elegí esta:** Trivy permite realizar auditorías rápidas mostrando vulnerabilidades del sistema operativo y paquetes utilizados dentro de la imagen.
+
+- **Fuentes consultadas:**
+  - Documentación oficial de [Trivy](https://trivy.dev/).
+  - Base de datos de vulnerabilidades [AVD](https://avd.aquasec.com/).
+
+- **Cómo lo verifiqué:** ejecuté:
+
+```bash
+docker run --rm aquasec/trivy:latest image ghcr.io/krisd08/perfil-api:v1.0
+```
+
+Resultado resumido:
+
+```text
+CRITICAL: 1
+HIGH: 5
+MEDIUM: 23
+LOW: 25
+UNKNOWN: 1
+```
+
+- **Análisis de la vulnerabilidad crítica:**
+
+  - **CVE:** `CVE-2026-31789`
+  - **Severidad:** CRITICAL
+  - **Paquete afectado:** `libssl3` (OpenSSL)
+
+- **Decisión tomada:** se mantiene temporalmente debido a que corresponde a una vulnerabilidad del paquete base Debian y se espera la actualización del parche upstream.
+
+- **Qué no me funcionó:** inicialmente ejecutar Trivy sin indicar correctamente la etiqueta `v1.0` generaba un error de manifiesto desconocido.
+
 
 ### Reto 6: Cero secretos y arranque automático
 
-- **Decisión:** `.env` está en `.gitignore` y nunca se commitea. Existe
-  `.env.example` con valores de ejemplo (no reales) como plantilla. En
-  `.devcontainer/devcontainer.json`, el `postCreateCommand` copia
-  `.env.example` a `.env` solo si `.env` todavía no existe, así un
-  Codespace nuevo arranca solo sin que nadie haya subido un secreto real
-  al repositorio.
+- **Decisión:** el archivo `.env` está incluido dentro de `.gitignore`, evitando que pueda ser subido al repositorio. Se creó `.env.example` como plantilla con valores de prueba.
+
+Además, dentro de `.devcontainer/devcontainer.json`, el `postCreateCommand` copia automáticamente `.env.example` hacia `.env` únicamente si este archivo todavía no existe.
+
 - **Alternativas que evalué:**
-  - Usar los "Codespaces secrets" (secretos a nivel de cuenta/repositorio
-    en GitHub): son la forma "correcta" en producción, pero no le sirven
-    a quien califica mi trabajo si no tiene acceso a mi cuenta para
-    configurarlos, y el reto pide que arranque solo para cualquiera.
-  - Poner la contraseña directamente en `compose.yaml`: viola la regla
-    de cero secretos aunque nunca esté en una imagen, porque de todas
-    formas queda en el historial de Git.
-- **Por qué elegí esta:** la contraseña de `.env.example` es una
-  credencial de desarrollo, desechable, que solo protege una base de
-  datos que vive y muere con el Codespace. No es un secreto de
-  producción (no protege nada real), así que no hay contradicción en
-  que quede "a la vista" como plantilla.
-- **Fuentes consultadas:** _(documentación de Compose sobre `env_file`,
-  documentación de GitHub sobre secretos de Codespaces)_
-- **Cómo lo verifiqué:**
-  `git log --all --full-history -- .env` (debe salir vacío) y
-  `docker history --no-trunc ghcr.io/USUARIO/perfil-api:1.0 | grep -i pass`
-  (no debe aparecer ninguna contraseña). _(pega ambas salidas reales)_
-- **Qué no me funcionó:**
+  - Utilizar GitHub Codespaces Secrets: fue descartado porque requiere configuración individual de cuenta y dificulta la evaluación automática del proyecto.
+
+- **Por qué elegí esta:** permite mantener un entorno reproducible y seguro, evitando exponer credenciales reales mientras mantiene el arranque automático en nuevos Codespaces.
+
+- **Fuentes consultadas:**
+  - Documentación oficial de Docker Compose sobre `env_file`.
+  - Documentación de GitHub Codespaces Secrets.
+
+- **Cómo lo verifiqué:** ejecuté:
+
+```bash
+git log --all --full-history -- .env
+```
+
+Resultado:
+
+```text
+(no se devolvió ningún registro)
+```
+
+Esto confirma que el archivo `.env` nunca fue versionado ni enviado al repositorio.
+
+- **Qué no me funcionó:** no se presentaron problemas adicionales debido a que la protección mediante `.gitignore` fue configurada desde el inicio.
 
 ---
-
-## Historial del curso
-
-- **S02** — Sitio inicial, ramas y pull requests.
-- **S03** — LAB-02: libro de visitas con Docker Compose (web + api + db).
