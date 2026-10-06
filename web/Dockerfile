@@ -12,7 +12,7 @@
 # privilegios. La imagen normal de nginx necesita root para abrir el
 # puerto 80 (todo puerto <1024 requiere el privilegio CAP_NET_BIND_SERVICE);
 # usando 8080 evitamos esa necesidad por completo (Reto 3).
-FROM nginxinc/nginx-unprivileged:1.30.5-alpine3.24
+FROM nginxinc/nginx-unprivileged:1.31.5-alpine3.24
 
 COPY --chown=nginx:nginx index.html /usr/share/nginx/html/index.html
 COPY --chown=nginx:nginx libro-de-visitas.js /usr/share/nginx/html/libro-de-visitas.js
