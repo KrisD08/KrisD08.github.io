@@ -12,7 +12,7 @@
 # privilegios. La imagen normal de nginx necesita root para abrir el
 # puerto 80 (todo puerto <1024 requiere el privilegio CAP_NET_BIND_SERVICE);
 # usando 8080 evitamos esa necesidad por completo (Reto 3).
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.30.5-alpine3.24
 
 COPY --chown=nginx:nginx index.html /usr/share/nginx/html/index.html
 COPY --chown=nginx:nginx libro-de-visitas.js /usr/share/nginx/html/libro-de-visitas.js
@@ -23,4 +23,4 @@ EXPOSE 8080
 # Imagen basada en Alpine: trae wget (de busybox), así que no hace falta
 # instalar curl solo para el healthcheck.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
-  CMD wget --spider -q http://localhost:8080/ || exit 1
+  CMD ["wget", "--spider", "-q", "http://localhost:8080/"]

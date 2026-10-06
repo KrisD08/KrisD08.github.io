@@ -1,10 +1,16 @@
 .DS_Store
 Thumbs.db
 
-# Nunca se commitea: usa .env.example como plantilla
 .env
 
-# Dependencias de Node (se reinstalan con npm install)
 node_modules/
 npm-debug.log*
 _tmp-lab02/
+
+_site/
+.cache/
+resultados-vitest.json
+trivy-*.json
+trivy-*.sarif
+
+_lab03/
