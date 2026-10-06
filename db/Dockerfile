@@ -8,7 +8,7 @@
 # La propia imagen oficial ya arranca el proceso de Postgres con el usuario
 # "postgres" (no root) internamente: por eso no hace falta un USER aquí
 # para cumplir el Reto 3. Lo verificamos con `docker compose exec db whoami`.
-FROM postgres:16-alpine
+FROM postgres:18-alpine
 
 COPY init/ /docker-entrypoint-initdb.d/
 
