@@ -23,4 +23,4 @@ EXPOSE 8080
 # Imagen basada en Alpine: trae wget (de busybox), así que no hace falta
 # instalar curl solo para el healthcheck.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
-  CMD wget --spider -q http://localhost:8080/ || exit 1
+  CMD ["wget", "--spider", "-q", "http://localhost:8080/"]

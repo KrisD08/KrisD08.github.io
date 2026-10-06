@@ -15,4 +15,4 @@ COPY init/ /docker-entrypoint-initdb.d/
 # pg_isready viene incluido en la imagen oficial: no hay que instalar nada
 # para tener un healthcheck real (Reto 2), a diferencia de web y api.
 HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=5 \
-  CMD pg_isready -U "${POSTGRES_USER:-app}" -d "${POSTGRES_DB:-libro}" || exit 1
+  CMD ["sh", "-c", "pg_isready -U \"${POSTGRES_USER:-app}\" -d \"${POSTGRES_DB:-libro}\" || exit 1"]
