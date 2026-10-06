@@ -1,0 +1,23 @@
+# .trivyignore: vulnerabilidades ACEPTADAS conscientemente (Reto 2).
+#
+# Regla: nada entra aquí "para que el job pase". Cada línea necesita:
+#   1) el ID exacto, tal como lo muestra Trivy en el log del job "security"
+#   2) un comentario con: qué paquete/imagen afecta, por qué NO nos afecta en
+#      este proyecto (o por qué no hay corrección), y quién/cuándo lo revisa
+#   3) una fecha de vencimiento "exp:" para que se vuelva a evaluar
+#
+# Formato:
+#   CVE-XXXX-NNNNN exp:AAAA-MM-DD
+#
+# Una CRITICAL con corrección disponible casi nunca debe ir aquí: lo correcto es
+# actualizar la imagen base o la librería. Aceptar es válido cuando el código
+# vulnerable no se puede alcanzar en tu aplicación, o no existe parche todavía y
+# lo estás vigilando. Aceptar es esconder el problema cuando solo quieres que
+# el pipeline se ponga en verde.
+
+# ⟦PENDIENTE: reemplaza la línea de abajo por UNA vulnerabilidad real de tu
+# reporte de Trivy (ID exacto), con su explicación. Mientras sea de ejemplo no
+# hace nada: Trivy ignora un ID que no aparece en el escaneo.⟧
+#
+# CVE-AAAA-NNNNN exp:2026-12-31
+# Motivo: <paquete> <versión> en <perfil-web|perfil-api>. <por qué no aplica / no hay parche>. Revisado el <fecha>.
