@@ -1,0 +1,206 @@
+
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  NOMBRE: Kiara De La Vega
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ env.SHA }}
+      - name: Lint de los Dockerfile (Hadolint)
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: Dockerfile
+          recursive: true
+          config: .hadolint.yaml
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Lint de index.html (HTMLHint)
+        run: npm run lint:html
+      - name: Lint de JavaScript (ESLint)
+        run: npm run lint:js
+      - name: Armar el sitio (_site/)
+        run: npm run sitio
+      - uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: _site/
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ env.SHA }}
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: github-pages
+          path: artefacto
+      - name: Desempaquetar _site/
+        run: |
+          mkdir -p _site
+          tar -xf artefacto/artifact.tar -C _site
+      - run: npm test
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      owner: ${{ steps.vars.outputs.owner }}
+      tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ env.SHA }}
+      - name: Calcular tag y dueño en minúsculas
+        id: vars
+        env:
+          DUENO: ${{ github.repository_owner }}
+        run: |
+          echo "tag=sha-${SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "owner=${DUENO,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta-web
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ghcr.io/${{ steps.vars.outputs.owner }}/perfil-web
+          tags: type=raw,value=${{ steps.vars.outputs.tag }}
+          flavor: latest=false
+      - uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: web/Dockerfile
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          provenance: false
+      - id: meta-api
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ghcr.io/${{ steps.vars.outputs.owner }}/perfil-api
+          tags: type=raw,value=${{ steps.vars.outputs.tag }}
+          flavor: latest=false
+      - uses: docker/build-push-action@v7.4.0
+        with:
+          context: ./api
+          file: api/Dockerfile
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          provenance: false
+
+  security:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE_OWNER: ${{ needs.package.outputs.owner }}
+      IMAGE_TAG: ${{ needs.package.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ env.SHA }}
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Trivy perfil-web
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/perfil-web:${{ env.IMAGE_TAG }}
+          vuln-type: os,library
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          trivyignores: .trivyignore
+          cache: 'false'
+      - name: Trivy perfil-api
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/perfil-api:${{ env.IMAGE_TAG }}
+          vuln-type: os,library
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          trivyignores: .trivyignore
+          cache: 'false'
+
+  smoke:
+    needs: [package, security]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/${{ needs.package.outputs.owner }}/perfil-web:${{ needs.package.outputs.tag }}
+    steps:
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Levantar perfil-web
+        run: |
+          docker pull "$IMAGE"
+          docker run -d --name web-smoke --add-host api:127.0.0.1 -p 8080:8080 "$IMAGE"
+      - name: GET / responde 200 y el HTML tiene mi nombre
+        run: |
+          code=000
+          for i in $(seq 1 20); do
+            code=$(curl -s -o index.html -w '%{http_code}' http://localhost:8080/ || true)
+            [ "$code" = "200" ] && break
+            sleep 1
+          done
+          if [ "$code" != "200" ]; then
+            echo "::error::GET / devolvió $code"
+            docker logs web-smoke
+            exit 1
+          fi
+          grep -q "$NOMBRE" index.html || { echo "::error::el HTML no contiene '$NOMBRE'"; exit 1; }
+
+  deploy-prod:
+    needs: smoke
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5.0.1
