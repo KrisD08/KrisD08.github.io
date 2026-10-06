@@ -6,9 +6,14 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-cd-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -17,54 +22,85 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.SHA }}
+          persist-credentials: false
+
       - name: Lint de los Dockerfile (Hadolint)
-        uses: hadolint/hadolint-action@v3.5.0
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: Dockerfile
           recursive: true
           config: .hadolint.yaml
-      - uses: actions/setup-node@v7.0.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          cache: npm
+
       - run: npm ci
+
       - name: Lint de index.html (HTMLHint)
         run: npm run lint:html
-      - name: Lint de JavaScript (ESLint)
+
+      - name: Lint del JavaScript de la API y del libro de visitas (ESLint)
         run: npm run lint:js
-      - name: Armar el sitio (_site/)
+
+      - name: Armar el sitio que se publica (_site/)
         run: npm run sitio
-      - uses: actions/upload-pages-artifact@v5.0.0
+
+      - name: Subir _site/ como artefacto de Pages
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site/
 
   test:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.SHA }}
-      - uses: actions/setup-node@v7.0.0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          cache: npm
+
       - run: npm ci
-      - uses: actions/download-artifact@v8.0.1
+
+      - name: Descargar el sitio de "build"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: github-pages
           path: artefacto
+
       - name: Desempaquetar _site/
         run: |
           mkdir -p _site
           tar -xf artefacto/artifact.tar -C _site
-      - run: npm test
+          find _site -type f | sort
+
+      - name: Pruebas (Vitest)
+        run: npm test -- --reporter=default --reporter=json --outputFile.json=resultados-vitest.json
+
+      - name: Resumen para quien aprueba
+        if: ${{ !cancelled() }}
+        run: node scripts/resumen-vitest.mjs >> "$GITHUB_STEP_SUMMARY"
 
   package:
-    needs: test
+    needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -72,29 +108,38 @@ jobs:
       owner: ${{ steps.vars.outputs.owner }}
       tag: ${{ steps.vars.outputs.tag }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.SHA }}
-      - name: Calcular tag y dueño en minúsculas
+          persist-credentials: false
+
+      - name: Calcular tag (sha-xxxxxxx) y dueño en minúsculas
         id: vars
         env:
           DUENO: ${{ github.repository_owner }}
         run: |
           echo "tag=sha-${SHA::7}" >> "$GITHUB_OUTPUT"
           echo "owner=${DUENO,,}" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v4.4.1
-      - uses: docker/login-action@v4.6.0
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Iniciar sesión en GitHub Packages (con el GITHUB_TOKEN, sin tokens personales)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - id: meta-web
-        uses: docker/metadata-action@v6.2.0
+
+      - name: Metadatos de perfil-web (tag + etiqueta que enlaza el paquete con el repo)
+        id: meta-web
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ steps.vars.outputs.owner }}/perfil-web
           tags: type=raw,value=${{ steps.vars.outputs.tag }}
           flavor: latest=false
-      - uses: docker/build-push-action@v7.4.0
+
+      - name: Construir y publicar perfil-web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: web/Dockerfile
@@ -102,13 +147,19 @@ jobs:
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}
           provenance: false
-      - id: meta-api
-        uses: docker/metadata-action@v6.2.0
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Metadatos de perfil-api
+        id: meta-api
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ steps.vars.outputs.owner }}/perfil-api
           tags: type=raw,value=${{ steps.vars.outputs.tag }}
           flavor: latest=false
-      - uses: docker/build-push-action@v7.4.0
+
+      - name: Construir y publicar perfil-api
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ./api
           file: api/Dockerfile
@@ -116,27 +167,58 @@ jobs:
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
           provenance: false
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Resumen para quien aprueba
+        run: |
+          {
+            echo "### Imágenes publicadas en GitHub Packages"
+            echo
+            echo "- \`ghcr.io/${{ steps.vars.outputs.owner }}/perfil-web:${{ steps.vars.outputs.tag }}\`"
+            echo "- \`ghcr.io/${{ steps.vars.outputs.owner }}/perfil-api:${{ steps.vars.outputs.tag }}\`"
+            echo
+            echo "Commit: \`${SHA}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   security:
     needs: package
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
-      packages: read
+      packages: read 
+      security-events: write 
     env:
       IMAGE_OWNER: ${{ needs.package.outputs.owner }}
       IMAGE_TAG: ${{ needs.package.outputs.tag }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.SHA }}
-      - uses: docker/login-action@v4.6.0
+          persist-credentials: false
+
+      - name: Iniciar sesión en GitHub Packages
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Trivy perfil-web
-        uses: aquasecurity/trivy-action@v0.36.0
+
+      - name: SAST (CodeQL) - preparar
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+
+      - name: SAST (CodeQL) - analizar y subir a Code scanning
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: /language:javascript-typescript
+
+      - name: Trivy perfil-web - compuerta
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/perfil-web:${{ env.IMAGE_TAG }}
@@ -145,10 +227,11 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           trivyignores: .trivyignore
-          cache: 'false'
-      - name: Trivy perfil-api
-        uses: aquasecurity/trivy-action@v0.36.0
+
+      - name: Trivy perfil-api - compuerta
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 
         with:
+          skip-setup-trivy: true 
           scan-type: image
           image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/perfil-api:${{ env.IMAGE_TAG }}
           vuln-type: os,library
@@ -156,26 +239,145 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           trivyignores: .trivyignore
-          cache: 'false'
+
+      - name: Trivy perfil-web - informe SARIF
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/perfil-web:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-web.sarif
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+          trivyignores: .trivyignore
+
+      - name: Trivy perfil-api - informe SARIF
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/perfil-api:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-api.sarif
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+          trivyignores: .trivyignore
+
+      - name: Subir hallazgos de perfil-web a Code scanning
+        if: ${{ !cancelled() && hashFiles('trivy-web.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy-web.sarif
+          category: trivy-web
+
+      - name: Subir hallazgos de perfil-api a Code scanning
+        if: ${{ !cancelled() && hashFiles('trivy-api.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy-api.sarif
+          category: trivy-api
+
+      - name: Trivy perfil-web - informe JSON (para el resumen)
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/perfil-web:${{ env.IMAGE_TAG }}
+          format: json
+          output: trivy-web.json
+          trivyignores: .trivyignore
+
+      - name: Trivy perfil-api - informe JSON (para el resumen)
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/perfil-api:${{ env.IMAGE_TAG }}
+          format: json
+          output: trivy-api.json
+          trivyignores: .trivyignore
+
+      - name: Resumen para quien aprueba
+        if: ${{ !cancelled() }}
+        run: node scripts/resumen-trivy.mjs web=trivy-web.json api=trivy-api.json >> "$GITHUB_STEP_SUMMARY"
+
+  integracion:
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE_OWNER: ${{ needs.package.outputs.owner }}
+      IMAGE_TAG: ${{ needs.package.outputs.tag }}
+      COMPOSE: docker compose -f compose.yaml -f compose.ci.yaml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.SHA }}
+          persist-credentials: false
+
+      - name: Iniciar sesión en GitHub Packages
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f 
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Crear .env desde la plantilla
+        run: cp .env.example .env
+
+      - name: Descargar web y api del commit y construir db
+        run: |
+          $COMPOSE pull web api
+          $COMPOSE build db
+
+      - name: Levantar los tres servicios y esperar a que estén sanos
+        run: $COMPOSE up -d --wait --no-build
+
+      - name: Probar el contrato de la API pasando por web
+        env:
+          BASE_URL: http://localhost:8080
+        run: node scripts/integracion.mjs
+
+      - name: Logs de los contenedores (solo si algo falló)
+        if: ${{ failure() }}
+        run: $COMPOSE logs --no-color --timestamps
+
+      - name: Apagar
+        if: ${{ always() }}
+        run: $COMPOSE down -v
 
   smoke:
-    needs: [package, security]
+    needs: [package, test, security, integracion] 
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       packages: read
     env:
       IMAGE: ghcr.io/${{ needs.package.outputs.owner }}/perfil-web:${{ needs.package.outputs.tag }}
     steps:
-      - uses: docker/login-action@v4.6.0
+      - name: Iniciar sesión en GitHub Packages
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Levantar perfil-web
         run: |
           docker pull "$IMAGE"
+          # nginx resuelve el nombre "api" al arrancar (proxy_pass). Aquí no hay servicio api,
+          # así que lo apuntamos a localhost solo para que nginx pueda iniciar.
           docker run -d --name web-smoke --add-host api:127.0.0.1 -p 8080:8080 "$IMAGE"
+
       - name: GET / responde 200 y el HTML tiene mi nombre
         run: |
           code=000
@@ -190,17 +392,43 @@ jobs:
             exit 1
           fi
           grep -q "$NOMBRE" index.html || { echo "::error::el HTML no contiene '$NOMBRE'"; exit 1; }
+          echo "Smoke OK: GET / -> 200 y aparece '$NOMBRE'"
+
+      - name: Limpiar
+        if: ${{ always() }}
+        run: docker rm -f web-smoke
 
   deploy-prod:
     needs: smoke
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Un pull request NUNCA despliega. Un lanzamiento manual solo despliega si es sobre main.
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
-      pages: write
-      id-token: write
+      contents: read 
+      pages: write 
+      id-token: write 
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SHA }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Revisar producción (200, mi nombre y el libro de visitas sin romper nada)
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: node scripts/comprobar-produccion.mjs

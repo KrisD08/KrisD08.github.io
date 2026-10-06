@@ -1,0 +1,6 @@
+
+services:
+  web:
+    image: ghcr.io/${IMAGE_OWNER:?falta IMAGE_OWNER}/perfil-web:${IMAGE_TAG:?falta IMAGE_TAG}
+  api:
+    image: ghcr.io/${IMAGE_OWNER:?falta IMAGE_OWNER}/perfil-api:${IMAGE_TAG:?falta IMAGE_TAG}
