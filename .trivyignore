@@ -15,9 +15,11 @@
 # lo estás vigilando. Aceptar es esconder el problema cuando solo quieres que
 # el pipeline se ponga en verde.
 
-# ⟦PENDIENTE: reemplaza la línea de abajo por UNA vulnerabilidad real de tu
-# reporte de Trivy (ID exacto), con su explicación. Mientras sea de ejemplo no
-# hace nada: Trivy ignora un ID que no aparece en el escaneo.⟧
-#
-# CVE-AAAA-NNNNN exp:2026-12-31
-# Motivo: <paquete> <versión> en <perfil-web|perfil-api>. <por qué no aplica / no hay parche>. Revisado el <fecha>.
+# CVE-2026-31789: OpenSSL (libssl3), desbordamiento de heap solo en sistemas de 32 bits
+# al procesar certificados X.509 muy grandes.
+# Afecta a: perfil-api (distroless nodejs20-debian12, libssl3 3.0.18-1~deb12u2).
+# El arreglo (3.0.19-1~deb12u2) existe en Debian pero la imagen base aun no lo incluye.
+# Por que no nos afecta: la imagen corre solo en 64 bits (x86_64) y la API usa HTTP
+# simple, no procesa certificados de clientes.
+# Revisado el 2026-10-06. Reevaluar al vencer: actualizar la imagen base.
+CVE-2026-31789 exp:2026-11-06
