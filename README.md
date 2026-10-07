@@ -55,71 +55,89 @@ npm test             # Vitest sobre _site/
 
 ## Delivery o deployment
 
-⟦PENDIENTE: revisa este texto y reescríbelo con tus palabras. En la defensa oral te preguntan
-exactamente esto: "¿qué tendrías que cambiar para que tu pipeline sea Continuous Deployment?"⟧
-
 Mi pipeline es **Continuous Delivery**: de `build` a `smoke` todo es automático, y el paso a producción
-(`deploy-prod`) espera a que yo lo apruebe. Esa espera no está en el YAML: la produce el *environment*
+(`deploy-prod`) espera a que yo lo apruebe. Esa espera no está escrita en el YAML: la produce el *environment*
 `github-pages`, que tiene configurado *Required reviewers*.
 
 **Qué cambiaría para pasar a Continuous Deployment:**
 
 1. En *Settings → Environments → github-pages* quito *Required reviewers*. Con eso `deploy-prod` corre apenas
-   termina `smoke`. **No cambia ninguna línea de código del workflow**: es un cambio de configuración.
-2. Antes de quitarla, reforzaría lo que hoy cubre mi aprobación: más pruebas (que `smoke` y `integracion`
-   sean lo bastante buenos como para confiar sin ver), y la revisión de producción de `deploy-prod`
-   (`scripts/comprobar-produccion.mjs`) tendría que **volver atrás sola** si falla, en vez de solo ponerse en rojo.
+   termina `smoke`. **No cambia ninguna línea del workflow**: es un cambio de configuración, no de código.
+2. Antes de quitarla reforzaría lo que hoy cubre mi aprobación: pruebas más completas (que `smoke` e
+   `integracion` sean lo bastante buenas como para confiar sin mirar) y que la revisión de producción de
+   `deploy-prod` (`scripts/comprobar-produccion.mjs`) **vuelva atrás sola** si falla. Hoy, si falla, el job se
+   pone en rojo pero la versión mala queda publicada hasta que yo haga el *revert*.
 
 **En qué casos no lo haría:**
 
 - Cuando un error en producción no se puede deshacer fácil: migraciones de base de datos, correos o
-  notificaciones enviadas, borrado de datos. Hoy el libro de visitas tiene una base de datos real (`db`).
-- Cuando el contenido necesita una persona que lo revise antes de ser público (textos legales, datos
-  personales, el contenido de mi perfil con mi nombre y correo).
-- Cuando las pruebas automáticas todavía no cubren lo importante: si el pipeline se pone en verde pero
-  nadie probó lo que cambió, quitar la aprobación solo quita la última red de seguridad.
-- Cuando hay regulaciones o auditorías que exigen una aprobación explícita y trazable.
+  notificaciones ya enviadas, borrado de datos. El libro de visitas tiene una base de datos real (`db`).
+- Cuando el contenido necesita que una persona lo revise antes de hacerse público (textos legales, datos
+  personales, mi nombre y mi correo en el perfil).
+- Cuando las pruebas automáticas todavía no cubren lo importante: si el pipeline se pone en verde pero nadie
+  probó lo que cambió, quitar la aprobación solo quita la última red de seguridad.
+- Cuando hay normas o auditorías que exigen una aprobación explícita y con registro.
 
-Para este perfil personal, que se publica sin API ni base de datos en GitHub Pages, Continuous Deployment
-sería razonable. La aprobación la dejé porque el laboratorio pide ver dónde está esa frontera.
+Para este perfil, que en GitHub Pages se publica sin API ni base de datos, Continuous Deployment sería
+razonable. Dejé la aprobación porque el laboratorio pide ver dónde está esa frontera.
 
 ---
 
 ## Volver a una versión anterior de producción
 
-⟦PENDIENTE: este procedimiento lo tienes que PROBAR y enlazar el run donde lo hiciste (Reto 5).⟧
-
 La regla: **todo cambio a producción pasa por el pipeline**, también el de volver atrás.
 
-1. En GitHub, abre el pull request que causó el problema (o busca su commit de *merge* en `main`) y pulsa **Revert**.
-   Eso crea un pull request nuevo con `git revert` del cambio.
+1. En GitHub, abro el pull request que causó el problema (ya mergeado) y pulso **Revert**. Eso crea un pull
+   request nuevo con el `git revert` del cambio.
 2. Ese PR pasa por `build`, `test`, `package`, `security`, `integracion` y `smoke`, igual que cualquier otro.
-3. Haz merge, aprueba `deploy-prod` y la versión anterior vuelve a estar publicada.
+3. Hago merge, apruebo `deploy-prod` y la versión anterior vuelve a estar publicada.
+
+**Lo probé:**
+
+| Paso | Enlace |
+|---|---|
+| Cambio visible en la nota de la portada | [PR #28](https://github.com/KrisD08/KrisD08.github.io/pull/28) |
+| Despliegue de ese cambio | [run 37552857830](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37552857830) |
+| Revert del cambio | [PR #29](https://github.com/KrisD08/KrisD08.github.io/pull/29) |
+| Despliegue del revert | [run 37553707865](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37553707865) |
+
+Después del revert la página volvió a mostrar el texto original de la nota de la portada
+("Datos · Tecnología · Creatividad").
 
 Alternativas que descarté:
 
-- **Volver a correr un despliegue viejo** (*Re-run all jobs* sobre un run antiguo en Actions): es rápido, pero
-  el historial de `main` sigue diciendo que la versión mala es la actual, y los artefactos de Pages expiran
-  (1 día por defecto), así que solo sirve *Re-run all jobs* y no *Re-run failed jobs*.
+- **Volver a correr un despliegue viejo** (*Re-run all jobs* sobre un run antiguo en Actions): es rápido, pero el
+  historial de `main` sigue diciendo que la versión mala es la actual, y los artefactos de Pages expiran (1 día
+  por defecto), así que solo serviría *Re-run all jobs* y no *Re-run failed jobs*.
 - **Revertir sin PR** (`git push` directo a `main`): la protección de rama lo impide, y con razón.
 
 ---
 
 ## Reto 1: tiempos del pipeline
 
-⟦PENDIENTE: llena esta tabla con los tiempos reales de la pestaña Actions (duración de cada job). "Antes" =
-el run de tu primera versión que funcionó (`_lab03/ci-cd.v1-base.yml`). "Después" = el run con el `ci-cd.yml`
-final. No cuentes el tiempo que el job `deploy-prod` espera la aprobación.⟧
+Los tiempos salen de la API de Actions (`started_at` y `completed_at` de cada job) y son de runs de **pull
+request**, para no contar la espera de la aprobación de `deploy-prod`.
 
-| Job | Antes (v1) | Después | Qué cambió |
+- **Antes:** [run 37543729131](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37543729131), el primer
+  run en verde del pipeline base (PR #20).
+- **Después:** [run 37552614359](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37552614359), PR #28, con
+  el pipeline final y las cachés ya llenas.
+
+| Job | Antes (base) | Después (final) | Qué cambió |
 |---|--:|--:|---|
-| build | ⟦ ⟧ | ⟦ ⟧ | caché de npm (`actions/setup-node`) |
-| test | ⟦ ⟧ | ⟦ ⟧ | caché de npm; corre **en paralelo** con `package` |
-| package | ⟦ ⟧ | ⟦ ⟧ | caché de capas de Docker (`type=gha`); sale del camino de `test` |
-| security | ⟦ ⟧ | ⟦ ⟧ | caché de la base de datos de Trivy; Trivy se instala una sola vez |
-| integracion | — | ⟦ ⟧ | job nuevo, **en paralelo** con `security` |
-| smoke | ⟦ ⟧ | ⟦ ⟧ | sin cambios |
-| **Total (de `build` a `smoke`)** | ⟦ ⟧ | ⟦ ⟧ | ⟦ % menos ⟧ |
+| build | 14 s | 17 s | caché de npm |
+| test | 12 s | 19 s | corre en paralelo con `package` |
+| package | 34 s | 24 s | caché de capas de Docker |
+| security | 23 s | 100 s | ahora incluye CodeQL, informes SARIF y JSON, resumen |
+| integracion | — | 35 s | job nuevo, en paralelo con `security` |
+| smoke | 5 s | 7 s | sin cambios |
+| **Total del run** | **105 s** | **159 s** | **51 % más lento** |
+
+**No cumplí el criterio de −30 %.** El pipeline final es más lento que el base porque hace bastante más trabajo:
+solo el job `security` pasó de 23 s a unos 100 s (CodeQL tarda alrededor de 50 s entre preparar y analizar, y
+hay seis ejecuciones de Trivy más la subida de resultados). Las cachés y el paralelismo ahorraron tiempo en
+`package`, pero mi pipeline base ya era corto (1 min 45 s), así que no alcanzaron para compensar los jobs nuevos.
+Más abajo, en la bitácora del Reto 1, explico qué haría distinto.
 
 ---
 
@@ -330,10 +348,25 @@ Esto confirma que el archivo `.env` nunca fue versionado ni enviado al repositor
 
 ## Bitácora de decisiones: LAB-03
 
-> ⟦PENDIENTE: cada entrada de abajo es un BORRADOR con las decisiones que quedaron en el código. Antes de
-> entregar: (1) léelas y corrige lo que no sea cierto en tu caso, (2) completa cada ⟦PENDIENTE⟧ con el enlace
-> real al run de Actions y lo que de verdad te falló, (3) borra las entradas de los retos que no intentaste.
-> Busca "⟦" en este archivo: no debe quedar ninguno.⟧
+Los enlaces a runs y pull requests son de este repositorio. Las capturas están en
+[`docs/evidencias/`](docs/evidencias/).
+
+### Nivel base: lo que falló en el primer pull request
+
+El primer PR del pipeline (#20) falló tres veces antes de ponerse en verde. Cada fallo era un problema real:
+
+| Run | Job y paso | Qué pasó | Cómo lo arreglé |
+|---|---|---|---|
+| [37541816941](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37541816941) | `build`, Hadolint | Regla **DL3025**: el `HEALTHCHECK` de `web/Dockerfile` y `db/Dockerfile` estaba en forma de texto y la regla pide la forma JSON | Pasé el `CMD` del `HEALTHCHECK` a notación JSON en los dos Dockerfile, sin apagar la regla |
+| [37542465306](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37542465306) | `security`, Trivy `perfil-web` | `CVE-2026-31789` (CRITICAL, con corrección) en `libcrypto3` y `libssl3` de Alpine 3.21; la imagen base era `nginx-unprivileged:1.27-alpine` | Subí la base a `nginxinc/nginx-unprivileged:1.30.5-alpine3.24` |
+| [37542914723](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37542914723) | `security`, Trivy `perfil-api` | El mismo CVE en `libssl3` de la imagen distroless (Debian 12): el parche existe en Debian pero la imagen base todavía no lo trae | Lo acepté en `.trivyignore` con motivo y fecha de vencimiento (ver Reto 2) |
+
+Los runs en rojo de las pruebas intencionales:
+
+- **`build` en rojo:** [run 37546883471](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37546883471)
+  (PR #21): un `<img>` sin `alt`, y HTMLHint se puso en rojo.
+- **`test` en rojo:** [run 37547272267](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37547272267)
+  (PR #22): cambié el nombre del `h1`, y Vitest se puso en rojo.
 
 ### B3: ¿Cómo le llega `_site/` al job `test`?
 
@@ -341,112 +374,199 @@ Esto confirma que el archivo `.env` nunca fue versionado ni enviado al repositor
   `test` lo baja con `actions/download-artifact` y lo desempaqueta (`tar -xf artefacto/artifact.tar -C _site`).
   `deploy-prod` publica ese mismo artefacto.
 - **Alternativas que evalué:**
-  - Volver a armar `_site/` en cada job con el mismo script: es simple y no depende de artefactos, pero
-    son dos construcciones distintas; si algún día difieren (por ejemplo, un archivo que cambia entre jobs),
-    pruebo una carpeta y publico otra.
-  - Subir `_site/` además como un artefacto normal con `actions/upload-artifact`: sirve, pero duplica el
-    artefacto y de todos modos el que se despliega es el de Pages.
-- **Por qué elegí esta:** es el único camino donde lo que se prueba y lo que se publica son exactamente los
-  mismos bytes: un solo artefacto, subido una vez, usado por `test` y por `deploy-prod`.
-- **Fuentes consultadas:** [`actions/upload-pages-artifact`](https://github.com/actions/upload-pages-artifact)
-  (su `action.yml` muestra que empaqueta en `artifact.tar`), [`actions/download-artifact`](https://github.com/actions/download-artifact).
-  ⟦PENDIENTE: agrega las que de verdad consultaste.⟧
-- **Cómo lo verifiqué:** ⟦PENDIENTE: enlace a un run de `test` en verde, y a otro donde renombraste
-  `libro-de-visitas.js` o quitaste un `alt` y `test` se puso en rojo.⟧
-- **Qué no me funcionó:** ⟦PENDIENTE: lo que te falló de verdad.⟧
+  - Volver a armar `_site/` en cada job con el mismo script: es simple y no depende de artefactos, pero son dos
+    construcciones distintas; si algún día difieren, pruebo una carpeta y publico otra.
+  - Subir `_site/` además como un artefacto normal con `actions/upload-artifact`: sirve, pero duplica el artefacto
+    y de todos modos el que se despliega es el de Pages.
+- **Por qué elegí esta:** es el único camino donde lo que se prueba y lo que se publica son exactamente los mismos
+  bytes: un solo artefacto, subido una vez, usado por `test` y por `deploy-prod`.
+- **Fuentes consultadas:** [`actions/upload-pages-artifact`](https://github.com/actions/upload-pages-artifact) (su
+  `action.yml` muestra que empaqueta en `artifact.tar`) y
+  [`actions/download-artifact`](https://github.com/actions/download-artifact).
+- **Cómo lo verifiqué:** `test` en verde en el [run 37548135847](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37548135847);
+  y en rojo cuando cambié el `h1` ([run 37547272267](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37547272267)).
+- **Qué no me funcionó:** no tuve problemas con este paso: el job `test` descargó y desempaquetó el artefacto desde
+  el primer run del pipeline final.
 
 ### Reto 1: Pipeline rápido
 
 - **Decisión:** caché de npm en `actions/setup-node` (`cache: npm`), caché de capas de Docker en
-  `docker/build-push-action` (`cache-from/cache-to: type=gha`, un `scope` por imagen), caché de la base de
-  datos de Trivy (viene incluida en `aquasecurity/trivy-action`) y Trivy instalado una sola vez
+  `docker/build-push-action` (`cache-from` y `cache-to` con `type=gha`, un `scope` por imagen), caché de la base
+  de datos de Trivy (viene incluida en `aquasecurity/trivy-action`) y Trivy instalado una sola vez
   (`skip-setup-trivy`). En paralelo: `test` con `package`, e `integracion` con `security`. `smoke` espera a todos.
 - **Alternativas que evalué:**
-  - Solo cachés, sin paralelismo: no cambia la estructura del pipeline, pero el camino crítico sigue siendo
-    largo.
+  - Solo cachés, sin paralelismo: no cambia la estructura del pipeline, pero el camino crítico sigue siendo largo.
   - `package` como matriz (`web` y `api` en paralelo): ahorra unos segundos, pero cambia los nombres de los
     checks (`package (web)`) y complica la protección de rama.
-- **Por qué elegí esta:** ninguna compuerta se salta: `deploy-prod` sigue exigiendo que pasen todas.
-  `test` y `package` no se necesitan entre sí (uno revisa el sitio, el otro construye imágenes).
-- **Fuentes consultadas:** ⟦PENDIENTE⟧
-- **Cómo lo verifiqué:** ⟦PENDIENTE: enlaces a los dos runs y la tabla de arriba.⟧
-- **Qué no me funcionó:** ⟦PENDIENTE⟧
+- **Por qué elegí esta:** ninguna compuerta se salta: `deploy-prod` sigue exigiendo que pasen todas. `test` y
+  `package` no se necesitan entre sí (uno revisa el sitio, el otro construye imágenes).
+- **Fuentes consultadas:** [`docker/build-push-action`](https://github.com/docker/build-push-action) (opciones
+  `cache-from` y `cache-to`), [`actions/setup-node`](https://github.com/actions/setup-node) (opción `cache`) y
+  [`aquasecurity/trivy-action`](https://github.com/aquasecurity/trivy-action) (opciones `cache` y `skip-setup-trivy`).
+- **Cómo lo verifiqué:** tabla de la sección "Reto 1: tiempos del pipeline", con los enlaces a los dos runs.
+- **Qué no me funcionó:** **no llegué al −30 %**: el pipeline pasó de 105 s a 159 s. Lo que aprendí:
+  - El pipeline base ya era corto, y el final suma trabajo que el base no hacía: CodeQL (SAST), cuatro ejecuciones
+    más de Trivy (informes SARIF y JSON), subida a Code scanning y el job `integracion`.
+  - El camino crítico del run final es `build` → `package` → `security` → `smoke`, y `security` por sí solo dura
+    unos 100 s.
+  - Lo que haría distinto: sacar CodeQL y los informes de Trivy a un job que corra en paralelo desde el inicio, en
+    vez de ponerlos en serie dentro de `security`, y comparar contra una línea base que incluya los mismos
+    chequeos.
 
 ### Reto 2: SAST y resultados a la vista
 
-- **Decisión:** CodeQL (`github/codeql-action`, lenguaje `javascript-typescript`, suite `security-extended`) corre
-  en el job `security` sobre `api/app.js` y `libro-de-visitas.js`. Los hallazgos de Trivy se suben en formato
-  SARIF con `upload-sarif` (categorías `trivy-web` y `trivy-api`). El permiso extra es `security-events: write`,
-  solo en ese job. Además hay un `.trivyignore` con una vulnerabilidad aceptada y su motivo.
-- **Alternativas que evalué:** Semgrep (reglas muy flexibles, pero hay que instalarlo, fijar su versión y subir
-  el SARIF a mano) y Bandit (solo analiza Python, y mi API es Node.js).
-- **Por qué elegí esta:** CodeQL sube sus resultados a Code scanning sin pasos extra y la acción se fija por SHA.
+- **Decisión:** CodeQL (`github/codeql-action`, lenguaje `javascript-typescript`, suite `security-extended`)
+  corre en el job `security` sobre `api/app.js` y `libro-de-visitas.js`. Los hallazgos de Trivy se suben en
+  formato SARIF con `upload-sarif` (categorías `trivy-web` y `trivy-api`). El permiso extra es
+  `security-events: write`, solo en ese job. Además hay un `.trivyignore` con una vulnerabilidad aceptada y su
+  motivo.
+- **Alternativas que evalué:** Semgrep (reglas muy flexibles, pero hay que instalarlo, fijar su versión y subir el
+  SARIF a mano) y Bandit (solo analiza Python, y mi API es Node.js).
+- **Por qué elegí esta:** CodeQL sube sus resultados a Code scanning sin pasos extra, y la acción se fija por SHA
+  como las demás.
+- **Qué muestran las capturas:**
+  - En *Security → Code scanning* aparecen las dos herramientas, **CodeQL** y **Trivy**
+    ([herramientas](docs/evidencias/r2_code.jpeg), [Trivy](docs/evidencias/r2_trivy.jpeg)). CodeQL analizó 1 archivo
+    de GitHub Actions, 1 HTML y 9 de JavaScript.
+  - El job `security` con los pasos de CodeQL y de Trivy en verde: [captura](docs/evidencias/r2_security.jpeg).
+  - No hubo alertas
+- **Sobre `.trivyignore`:** acepté `CVE-2026-31789`, de OpenSSL (`libssl3`) en `perfil-api`. El propio título del
+  hallazgo dice que es un desbordamiento de heap **solo en sistemas de 32 bits** al procesar certificados X.509 muy
+  grandes. Mis imágenes corren en 64 bits (x86_64) y la API habla HTTP simple, sin procesar certificados de
+  clientes, así que el código vulnerable no es alcanzable. Además el arreglo (`3.0.19-1~deb12u2`) existe en Debian
+  pero la imagen base distroless todavía no lo trae. La entrada tiene fecha de vencimiento (2026-11-06) para
+  volver a evaluarla y actualizar la imagen base.
+- **¿Cuándo aceptar una vulnerabilidad es una decisión válida y cuándo es esconder el problema?** Es válida cuando
+  hay una razón técnica concreta (el código afectado no se puede alcanzar en mi aplicación, o todavía no hay parche
+  y lo estoy vigilando), queda escrita y vence. Es esconder el problema cuando solo se hace para que el pipeline
+  se ponga en verde, sobre todo con una CRITICAL que sí tiene corrección y que bastaba con actualizar. Por eso con
+  `perfil-web` no acepté nada: actualicé la imagen base.
+- **Diferencia entre SAST, SCA y escaneo de imágenes:** SAST (CodeQL) analiza el código que yo escribo; SCA analiza
+  las librerías de las que dependo (Trivy sobre `node_modules`); el escaneo de imágenes (Trivy sobre el sistema
+  operativo de la imagen) analiza paquetes como `libssl3`.
+- **Resultado de Trivy en el run [37549127602](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37549127602):**
+
+  | Imagen | CRITICAL | HIGH | MEDIUM | LOW | UNKNOWN |
+  |---|--:|--:|--:|--:|--:|
+  | perfil-web | 0 | 0 | 0 | 0 | 0 |
+  | perfil-api | 0 | 6 | 35 | 27 | 1 |
+
+  (la CRITICAL de `perfil-api` no aparece porque está en `.trivyignore`)
 - **Fuentes consultadas:** [`github/codeql-action`](https://github.com/github/codeql-action),
-  [`aquasecurity/trivy-action`](https://github.com/aquasecurity/trivy-action). ⟦PENDIENTE: agrega las tuyas.⟧
-- **Sobre `.trivyignore`:** ⟦PENDIENTE: cuál CVE aceptaste, de qué paquete, y por qué es una decisión válida y no
-  esconder el problema.⟧
-- **Cómo lo verifiqué:** ⟦PENDIENTE: captura de Security → Code scanning con hallazgos de las dos herramientas.⟧
-- **Qué no me funcionó:** ⟦PENDIENTE⟧
+  [`aquasecurity/trivy-action`](https://github.com/aquasecurity/trivy-action) y el aviso del CVE que muestra Trivy
+  en su tabla.
+- **Cómo lo verifiqué:** capturas de arriba y el [run 37549127602](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37549127602).
+- **Qué no me funcionó:** el CVE frenó `security` primero en `perfil-web` y después en `perfil-api`, y cada uno se
+  resolvió distinto (ver la tabla del nivel base).
 
 ### Reto 3: Pruebas de integración con Compose
 
 - **Decisión:** el job `integracion` crea `.env` desde `.env.example`, descarga `perfil-web` y `perfil-api` del
-  commit (las mismas que escanea Trivy) con `compose.ci.yaml`, construye `db`, levanta todo con
-  `docker compose up -d --wait --no-build` y corre `scripts/integracion.mjs` contra `http://localhost:8080`
-  (es decir, **pasando por nginx**). Si algo falla, un paso con `if: failure()` imprime los logs.
+  commit (las mismas que escanea Trivy) usando `compose.ci.yaml`, construye `db`, levanta todo con
+  `docker compose up -d --wait --no-build` y corre `scripts/integracion.mjs` contra `http://localhost:8080`, es decir,
+  **pasando por nginx**. Si algo falla, un paso con `if: failure()` imprime los logs de los contenedores.
+- **Qué prueba:** 11 casos del contrato de la API: `GET /api/health` → 200; `POST /api/mensajes` válido → 201;
+  sin nombre, nombre vacío, sin mensaje, mensaje de 281 caracteres y nombre de 61 caracteres → 400; mensaje de 280
+  caracteres → 201; cuerpo que no es JSON → 400; el mensaje creado aparece en `GET /api/mensajes`; y que el
+  texto de un visitante se guarda como texto, no como HTML.
 - **Alternativas que evalué:**
   - Escribirlas en Vitest con `fetch`: reutiliza la herramienta, pero `npm test` correría contra una API que no
     existe cuando lo ejecuto en mi máquina o en el job `test`.
-  - Un script con `curl`: cero dependencias, pero comparar JSON y mostrar un resumen en bash es incómodo.
-- **Por qué elegí esta:** un script de Node con `fetch` (ya está en Node 18+) se puede ejecutar igual en mi
-  máquina y en el runner, y genera el resumen del run.
-- **Fuentes consultadas:** ⟦PENDIENTE⟧
-- **Cómo lo verifiqué:** ⟦PENDIENTE: enlace al run en ROJO con la API rota a propósito, y al run en VERDE cuando la
-  arreglaste.⟧
-- **Qué no me funcionó:** ⟦PENDIENTE⟧
+  - Un script con `curl`: cero dependencias, pero comparar JSON y armar un resumen en bash es incómodo.
+- **Por qué elegí esta:** un script de Node con `fetch` (ya viene en Node 18 o superior) se puede ejecutar igual
+  en mi máquina y en el runner, y genera el resumen del run.
+- **¿Cómo arranca Compose si el runner no tiene mi `.env`?** El `.env` nunca se commitea. El job lo copia desde
+  `.env.example` (valores de desarrollo desechables) antes de levantar los servicios.
+- **Fuentes consultadas:** [Docker Compose](https://github.com/docker/compose) (opciones `up --wait` y `--no-build`) y el
+  enunciado del LAB-03 (Reto 3).
+- **Cómo lo verifiqué:**
+  - **En rojo:** [run 37547582397](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37547582397)
+    ([job](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37547582397/job/112555577835)):
+    `integracion` falló en el paso "Levantar los tres servicios y esperar a que estén sanos" porque el contenedor
+    `web` quedó *unhealthy*.
+  - **En verde:** [run 37548135847](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37548135847), ya
+    con el healthcheck de `web` corregido. Resumen del job: [captura](docs/evidencias/r6_integration.jpeg)
+    (11 de 11 pruebas).
+- **Qué no me funcionó:** el healthcheck de `web` fallaba en el runner después de cambiar la imagen base de nginx.
+  Lo corregí cambiando `localhost` por `127.0.0.1` en `compose.yaml` y en `web/Dockerfile`; mi hipótesis es que
+  `localhost` se resolvía a IPv6 (`::1`) y nginx escucha solo en IPv4, pero no lo confirmé en el log.
 
 ### Reto 4: Mínimo privilegio y cadena de suministro
 
 - **Decisión:** `permissions: contents: read` para todo el workflow y cada job declara los suyos: solo `package`
-  tiene `packages: write`, solo `security` tiene `security-events: write`, solo `deploy-prod` tiene
-  `pages: write` e `id-token: write`. Todas las acciones de terceros se fijan con el SHA completo (con el tag en
-  un comentario), y `.github/dependabot.yml` las mantiene al día junto con npm y las imágenes base.
+  tiene `packages: write`, solo `security` tiene `security-events: write`, solo `deploy-prod` tiene `pages: write`
+  e `id-token: write`. Todas las acciones de terceros se fijan con el SHA completo (con el tag en un comentario), y
+  [`.github/dependabot.yml`](.github/dependabot.yml) las mantiene al día junto con npm y las imágenes base.
 - **Alternativas que evalué:** fijar con tags (`@v4`: se leen mejor, pero un tag se puede mover, como pasó con
-  `tj-actions/changed-files`) y `permissions: write-all` (cómodo, pero un paso comprometido podría escribir en
-  todo el repositorio).
-- **Por qué elegí esta:** un SHA no se puede mover; si alguien compromete una acción, mi pipeline sigue usando el
-  commit que revisé.
-- **Fuentes consultadas:** ⟦PENDIENTE⟧
-- **Cómo lo verifiqué:** ⟦PENDIENTE: enlace a `ci-cd.yml` y a `dependabot.yml`, y al primer PR de Dependabot.⟧
-- **Qué no me funcionó:** ⟦PENDIENTE: por ejemplo, los PR de Dependabot reciben un `GITHUB_TOKEN` de solo lectura,
-  así que `package` no puede subir imágenes en esos PR. Cuenta qué hiciste.⟧
+  `tj-actions/changed-files`) y `permissions: write-all` (cómodo, pero un paso comprometido podría escribir en todo
+  el repositorio).
+- **Por qué elegí esta:** un SHA identifica un commit concreto y no se puede mover; si alguien compromete una
+  acción, mi pipeline sigue usando el commit que revisé.
+- **Fuentes consultadas:** el enunciado del LAB-03 y los repositorios de las acciones que uso.
+- **Cómo lo verifiqué:** [`ci-cd.yml`](.github/workflows/ci-cd.yml), [`dependabot.yml`](.github/dependabot.yml) y los
+  pull requests que abrió Dependabot ([captura](docs/evidencias/r4_dependencias.jpeg)):
+
+  | PR | Qué propone | Resultado del pipeline |
+  |---|---|---|
+  | #24 | PostgreSQL 16 → 18 en `/db` | **Falló** (8/9): `integracion`, paso "Levantar los tres servicios" ([run 37549190507](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37549190507)) |
+  | #25 | Node 20 → 26 en `/api` | Verde (9/9) |
+  | #26 | nginx-unprivileged 1.30.5 → 1.31.5 en `/web` | Verde (9/9) |
+  | #27 | express 4.22.3 → 5.2.1 en `/api` | Verde (9/9) |
+
+  No hice merge de ninguno: son saltos de versión mayor (o, en el caso de nginx, un cambio que no hacía falta
+  mezclar con el laboratorio).
+- **Qué no me funcionó:** el PR #24 (PostgreSQL 18) lo rechazó mi propio pipeline, en el job `integracion`. No
+  analicé el log a fondo; probablemente se debe a que PostgreSQL 18 cambió cosas de la carpeta de datos del
+  contenedor, pero no lo confirmé. Lo bueno es que el cambio no habría llegado a producción.
 
 ### Reto 5: Revisar producción y volver atrás
 
 - **Decisión:** después de `actions/deploy-pages`, el paso `scripts/comprobar-produccion.mjs` entra a la URL
-  publicada (`page_url`) y comprueba: (1) responde 200, con reintentos porque Pages tarda unos segundos; (2)
-  aparece mi nombre; (3) ejecuta el JavaScript real de la página en jsdom y verifica que, sin `/api`, el
-  libro de visitas queda oculto y no hay errores. Volver atrás: `git revert` por pull request (ver la sección
-  "Volver a una versión anterior de producción").
+  publicada (`page_url`) y comprueba: (1) que responde 200, con reintentos porque Pages tarda unos segundos en
+  actualizarse; (2) que aparece mi nombre; y (3) ejecuta el JavaScript real de la página en jsdom y verifica que,
+  sin `/api`, el libro de visitas queda oculto y no hay errores. Para volver atrás uso `git revert` por pull
+  request (sección "Volver a una versión anterior de producción").
 - **Alternativas que evalué:** solo `curl` con `grep` (más simple, pero no prueba que el JavaScript no rompa la
-  página) y un navegador real con Playwright (más fiel, pero tarda mucho más para un smoke).
+  página) y un navegador real con Playwright (más fiel, pero tarda mucho más para una revisión rápida).
 - **Por qué elegí esta:** prueba el código de verdad sin descargar un navegador.
+- **¿Qué comprueba y por qué "deploy en verde" no basta?** Que el job termine en verde solo significa que GitHub
+  aceptó los archivos. El paso comprueba que el sitio publicado funcione: que responda, que sea la versión nueva
+  (aparece mi nombre) y que no se rompa por la falta de la API.
+- **¿Por qué reintentos con espera?** Pages tarda unos segundos en actualizar lo que sirve. El script reintenta
+  hasta 12 veces con 10 segundos entre intentos y no da por buena la página hasta que aparece mi nombre.
+- **¿`git revert` o volver a correr un despliegue viejo?** Elegí `git revert` por pull request, porque es la que
+  respeta que todo pasa por el pipeline (pruebas, escaneo y aprobación) y deja el historial de `main` contando lo
+  que realmente está publicado.
 - **Fuentes consultadas:** [`actions/deploy-pages`](https://github.com/actions/deploy-pages) (salida `page_url`).
-  ⟦PENDIENTE: agrega las tuyas.⟧
-- **Cómo lo verifiqué:** ⟦PENDIENTE: enlace al log de esa revisión y al run donde volviste atrás.⟧
-- **Qué no me funcionó:** ⟦PENDIENTE⟧
+- **Cómo lo verifiqué:**
+  - Registro de la revisión de producción en verde ([captura](docs/evidencias/r5.jpeg)), en el job `deploy-prod` del
+    [run 37549127602](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37549127602)
+    ([job](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37549127602/job/112566045219)).
+  - Prueba del rollback: [PR #28](https://github.com/KrisD08/KrisD08.github.io/pull/28) (cambio),
+    [run 37552857830](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37552857830),
+    [PR #29](https://github.com/KrisD08/KrisD08.github.io/pull/29) (revert) y
+    [run 37553707865](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37553707865).
+- **Qué no me funcionó:** no tuve problemas con este reto.
 
 ### Reto 6: El pipeline se explica solo
 
-- **Decisión:** cada job escribe en `$GITHUB_STEP_SUMMARY`: `test` la tabla de pruebas (Vitest, vía
-  `scripts/resumen-vitest.mjs`), `security` la tabla de vulnerabilidades por severidad (Trivy en JSON, vía
-  `scripts/resumen-trivy.mjs`), `integracion` la tabla del contrato de la API y `package` las imágenes publicadas.
-  El badge del workflow está arriba, en este README.
+- **Decisión:** cada job escribe en `$GITHUB_STEP_SUMMARY`: `test` la tabla de pruebas (Vitest, con
+  `scripts/resumen-vitest.mjs`), `security` la tabla de vulnerabilidades por severidad (Trivy en JSON, con
+  `scripts/resumen-trivy.mjs`), `integracion` la tabla del contrato de la API y `package` las imágenes
+  publicadas. El badge del workflow está arriba, en este README.
 - **Alternativas que evalué:** la plantilla `template` de Trivy (para contar por severidad hay que escribir lógica
-  en Go templates) y solo mirar los logs (nadie los abre antes de aprobar).
-- **Por qué elegí esta:** Trivy en JSON + un script corto de Node, que además pude probar en mi máquina.
-- **Fuentes consultadas:** ⟦PENDIENTE⟧
-- **Cómo lo verifiqué:** ⟦PENDIENTE: captura del resumen de un run.⟧
-- **Qué no me funcionó:** ⟦PENDIENTE⟧
+  en plantillas de Go) y solo mirar los logs (nadie los abre antes de aprobar).
+- **Por qué elegí esta:** Trivy en JSON y un script corto de Node, que además pude probar en mi máquina.
+- **¿Por qué quien aprueba necesita ver el resumen?** Cuando `deploy-prod` espera mi aprobación, sin resumen
+  tendría que abrir los logs de cada job para saber qué estoy aprobando. Con el resumen veo en una página cuántas
+  pruebas pasaron, qué vulnerabilidades hay por severidad y qué imágenes se publicaron.
+- **Fuentes consultadas:** [`aquasecurity/trivy-action`](https://github.com/aquasecurity/trivy-action) (formatos de
+  salida) y la documentación de GitHub sobre el resumen de un job (`GITHUB_STEP_SUMMARY`).
+- **Cómo lo verifiqué:** capturas del [resumen de pruebas](docs/evidencias/r6_test.jpeg), del
+  [resumen de imágenes](docs/evidencias/r6_package.jpeg), del [resumen de Trivy](docs/evidencias/r6_security.jpeg),
+  del [resumen de integración](docs/evidencias/r6_integration.jpeg), todas del run
+  [37549127602](https://github.com/KrisD08/KrisD08.github.io/actions/runs/37549127602), y del
+  [badge en el README](docs/evidencias/r6_passingCICD.jpeg).
+- **Qué no me funcionó:** no tuve problemas con este reto.
 
 ---
