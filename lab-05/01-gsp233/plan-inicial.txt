@@ -1,0 +1,389 @@
+data.google_client_config.current: Reading...
+data.google_container_engine_versions.default: Reading...
+data.google_client_config.current: Read complete after 0s [id=projects/qwiklabs-gcp-01-6ef13a874f95/regions/us-east4/zones/]
+data.google_container_engine_versions.default: Read complete after 1s [id=2026-10-31 21:48:37.58751325 +0000 UTC]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # google_compute_address.default will be created
+  + resource "google_compute_address" "default" {
+      + address            = (known after apply)
+      + address_id         = (known after apply)
+      + address_type       = "EXTERNAL"
+      + creation_timestamp = (known after apply)
+      + deletion_policy    = "DELETE"
+      + effective_labels   = {
+          + "goog-terraform-provisioned" = "true"
+        }
+      + id                 = (known after apply)
+      + label_fingerprint  = (known after apply)
+      + name               = "tf-gke-k8s"
+      + network_tier       = (known after apply)
+      + prefix_length      = (known after apply)
+      + project            = "qwiklabs-gcp-01-6ef13a874f95"
+      + purpose            = (known after apply)
+      + region             = "us-east4"
+      + self_link          = (known after apply)
+      + subnetwork         = (known after apply)
+      + terraform_labels   = {
+          + "goog-terraform-provisioned" = "true"
+        }
+      + users              = (known after apply)
+    }
+
+  # google_compute_network.default will be created
+  + resource "google_compute_network" "default" {
+      + auto_create_subnetworks                   = false
+      + bgp_always_compare_med                    = (known after apply)
+      + bgp_best_path_selection_mode              = (known after apply)
+      + bgp_inter_region_cost                     = (known after apply)
+      + delete_bgp_always_compare_med             = false
+      + delete_default_routes_on_create           = false
+      + deletion_policy                           = "DELETE"
+      + gateway_ipv4                              = (known after apply)
+      + id                                        = (known after apply)
+      + internal_ipv6_range                       = (known after apply)
+      + mtu                                       = (known after apply)
+      + name                                      = "tf-gke-k8s"
+      + network_firewall_policy_enforcement_order = "AFTER_CLASSIC_FIREWALL"
+      + network_id                                = (known after apply)
+      + numeric_id                                = (known after apply)
+      + project                                   = "qwiklabs-gcp-01-6ef13a874f95"
+      + routing_mode                              = (known after apply)
+      + self_link                                 = (known after apply)
+    }
+
+  # google_compute_subnetwork.default will be created
+  + resource "google_compute_subnetwork" "default" {
+      + allow_subnet_cidr_routes_overlap = (known after apply)
+      + creation_timestamp               = (known after apply)
+      + deletion_policy                  = "DELETE"
+      + external_ipv6_prefix             = (known after apply)
+      + fingerprint                      = (known after apply)
+      + gateway_address                  = (known after apply)
+      + id                               = (known after apply)
+      + internal_ipv6_prefix             = (known after apply)
+      + ip_cidr_range                    = "10.127.0.0/20"
+      + ipv6_cidr_range                  = (known after apply)
+      + ipv6_gce_endpoint                = (known after apply)
+      + name                             = "tf-gke-k8s"
+      + network                          = (known after apply)
+      + private_ip_google_access         = true
+      + private_ipv6_google_access       = (known after apply)
+      + project                          = "qwiklabs-gcp-01-6ef13a874f95"
+      + purpose                          = (known after apply)
+      + region                           = "us-east4"
+      + self_link                        = (known after apply)
+      + stack_type                       = (known after apply)
+      + state                            = (known after apply)
+      + subnetwork_id                    = (known after apply)
+
+      + secondary_ip_range (known after apply)
+    }
+
+  # google_container_cluster.default will be created
+  + resource "google_container_cluster" "default" {
+      + autopilot_privileged_admission           = (known after apply)
+      + cluster_ipv4_cidr                        = (known after apply)
+      + datapath_provider                        = (known after apply)
+      + default_max_pods_per_node                = (known after apply)
+      + deletion_policy                          = "DELETE"
+      + deletion_protection                      = true
+      + disable_l4_lb_firewall_reconciliation    = false
+      + effective_labels                         = {
+          + "goog-terraform-provisioned" = "true"
+        }
+      + emulated_version                         = (known after apply)
+      + enable_cilium_clusterwide_network_policy = false
+      + enable_fqdn_network_policy               = false
+      + enable_intranode_visibility              = (known after apply)
+      + enable_kubernetes_alpha                  = false
+      + enable_l4_ilb_subsetting                 = (known after apply)
+      + enable_legacy_abac                       = true
+      + enable_multi_networking                  = false
+      + enable_shielded_nodes                    = true
+      + endpoint                                 = (known after apply)
+      + id                                       = (known after apply)
+      + initial_node_count                       = 3
+      + label_fingerprint                        = (known after apply)
+      + location                                 = "us-east4-c"
+      + logging_service                          = (known after apply)
+      + master_version                           = (known after apply)
+      + min_master_version                       = "1.37.1-gke.3020000"
+      + monitoring_service                       = (known after apply)
+      + name                                     = "tf-gke-k8s"
+      + network                                  = "tf-gke-k8s"
+      + networking_mode                          = (known after apply)
+      + node_locations                           = (known after apply)
+      + node_version                             = (known after apply)
+      + operation                                = (known after apply)
+      + private_ipv6_google_access               = (known after apply)
+      + project                                  = (known after apply)
+      + self_link                                = (known after apply)
+      + services_ipv4_cidr                       = (known after apply)
+      + subnetwork                               = "tf-gke-k8s"
+      + terraform_labels                         = {
+          + "goog-terraform-provisioned" = "true"
+        }
+      + tpu_ipv4_cidr_block                      = (known after apply)
+
+      + addons_config (known after apply)
+
+      + anonymous_authentication_config (known after apply)
+
+      + authenticator_groups_config (known after apply)
+
+      + autopilot_cluster_policy_config (known after apply)
+
+      + cluster_autoscaling (known after apply)
+
+      + confidential_nodes (known after apply)
+
+      + control_plane_endpoints_config (known after apply)
+
+      + cost_management_config (known after apply)
+
+      + database_encryption (known after apply)
+
+      + default_snat_status (known after apply)
+
+      + enterprise_config (known after apply)
+
+      + gateway_api_config (known after apply)
+
+      + gke_auto_upgrade_config (known after apply)
+
+      + identity_service_config (known after apply)
+
+      + ip_allocation_policy (known after apply)
+
+      + logging_config (known after apply)
+
+      + managed_opentelemetry_config (known after apply)
+
+      + master_auth (known after apply)
+
+      + master_authorized_networks_config (known after apply)
+
+      + mesh_certificates (known after apply)
+
+      + monitoring_config (known after apply)
+
+      + node_config (known after apply)
+
+      + node_creation_config (known after apply)
+
+      + node_pool (known after apply)
+
+      + node_pool_auto_config (known after apply)
+
+      + node_pool_defaults (known after apply)
+
+      + notification_config (known after apply)
+
+      + pod_autoscaling (known after apply)
+
+      + rbac_binding_config (known after apply)
+
+      + release_channel (known after apply)
+
+      + schedule_upgrade_config (known after apply)
+
+      + security_posture_config (known after apply)
+
+      + service_external_ips_config (known after apply)
+
+      + vertical_pod_autoscaling (known after apply)
+
+      + workload_identity_config (known after apply)
+    }
+
+  # kubernetes_namespace.staging will be created
+  + resource "kubernetes_namespace" "staging" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "staging"
+          + resource_version = (known after apply)
+          + self_link        = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_replication_controller.nginx will be created
+  + resource "kubernetes_replication_controller" "nginx" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "run" = "nginx"
+            }
+          + name             = "nginx"
+          + namespace        = "staging"
+          + resource_version = (known after apply)
+          + self_link        = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + min_ready_seconds = 0
+          + replicas          = 1
+          + selector          = {
+              + "run" = "nginx"
+            }
+
+          + template {
+              + active_deadline_seconds          = (known after apply)
+              + dns_policy                       = (known after apply)
+              + host_ipc                         = (known after apply)
+              + host_network                     = (known after apply)
+              + host_pid                         = (known after apply)
+              + hostname                         = (known after apply)
+              + node_name                        = (known after apply)
+              + node_selector                    = (known after apply)
+              + priority_class_name              = (known after apply)
+              + restart_policy                   = (known after apply)
+              + service_account_name             = (known after apply)
+              + share_process_namespace          = false
+              + subdomain                        = (known after apply)
+              + termination_grace_period_seconds = (known after apply)
+
+              + container (known after apply)
+
+              + host_aliases (known after apply)
+
+              + image_pull_secrets (known after apply)
+
+              + init_container (known after apply)
+
+              + metadata {
+                  + generation       = (known after apply)
+                  + labels           = {
+                      + "run" = "nginx"
+                    }
+                  + name             = "nginx"
+                  + resource_version = (known after apply)
+                  + self_link        = (known after apply)
+                  + uid              = (known after apply)
+                }
+
+              + security_context (known after apply)
+
+              + spec {
+                  + active_deadline_seconds          = (known after apply)
+                  + dns_policy                       = (known after apply)
+                  + host_ipc                         = (known after apply)
+                  + host_network                     = (known after apply)
+                  + host_pid                         = (known after apply)
+                  + hostname                         = (known after apply)
+                  + node_name                        = (known after apply)
+                  + node_selector                    = (known after apply)
+                  + priority_class_name              = (known after apply)
+                  + restart_policy                   = (known after apply)
+                  + service_account_name             = (known after apply)
+                  + share_process_namespace          = false
+                  + subdomain                        = (known after apply)
+                  + termination_grace_period_seconds = (known after apply)
+
+                  + container {
+                      + image                    = "nginx:latest"
+                      + image_pull_policy        = (known after apply)
+                      + name                     = "nginx"
+                      + stdin                    = false
+                      + stdin_once               = false
+                      + termination_message_path = "/dev/termination-log"
+                      + tty                      = false
+
+                      + resources {
+                          + limits {
+                              + cpu    = "0.5"
+                              + memory = "512Mi"
+                            }
+                          + requests {
+                              + cpu    = "250m"
+                              + memory = "50Mi"
+                            }
+                        }
+
+                      + volume_mount (known after apply)
+                    }
+
+                  + host_aliases (known after apply)
+
+                  + image_pull_secrets (known after apply)
+
+                  + init_container (known after apply)
+
+                  + security_context (known after apply)
+
+                  + volume (known after apply)
+                }
+
+              + volume (known after apply)
+            }
+        }
+    }
+
+  # kubernetes_service.nginx will be created
+  + resource "kubernetes_service" "nginx" {
+      + id                    = (known after apply)
+      + load_balancer_ingress = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "nginx"
+          + namespace        = "staging"
+          + resource_version = (known after apply)
+          + self_link        = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + cluster_ip                  = (known after apply)
+          + external_traffic_policy     = (known after apply)
+          + load_balancer_ip            = (known after apply)
+          + publish_not_ready_addresses = false
+          + selector                    = {
+              + "run" = "nginx"
+            }
+          + session_affinity            = "ClientIP"
+          + type                        = "LoadBalancer"
+
+          + port {
+              + node_port   = (known after apply)
+              + port        = 80
+              + protocol    = "TCP"
+              + target_port = "80"
+            }
+        }
+    }
+
+Plan: 7 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + cluster_location = "us-east4-c"
+  + cluster_name     = "tf-gke-k8s"
+  + cluster_region   = "us-east4"
+  + load-balancer-ip = (known after apply)
+  + network          = (known after apply)
+  + subnetwork_name  = "tf-gke-k8s"
+
+Warning: Version constraints inside provider configuration blocks are deprecated
+
+  on k8s.tf line 2, in provider "kubernetes":
+   2:   version = "~> 1.10.0"
+
+Terraform 0.13 and earlier allowed provider version constraints inside the provider configuration block, but that is now deprecated and
+will be removed in a future version of Terraform. To silence this warning, move the provider version constraint into the
+required_providers block.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't
+guarantee to take exactly these actions if you run "terraform apply" now.

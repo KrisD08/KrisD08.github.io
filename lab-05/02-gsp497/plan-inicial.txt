@@ -1,0 +1,207 @@
+data.google_container_engine_versions.gke_versions: Reading...
+data.google_container_engine_versions.gke_versions: Read complete after 1s [id=2026-10-31 22:23:59.727828188 +0000 UTC]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # google_container_cluster.primary will be created
+  + resource "google_container_cluster" "primary" {
+      + autopilot_privileged_admission           = (known after apply)
+      + cluster_ipv4_cidr                        = (known after apply)
+      + datapath_provider                        = (known after apply)
+      + default_max_pods_per_node                = (known after apply)
+      + deletion_policy                          = "DELETE"
+      + deletion_protection                      = false
+      + disable_l4_lb_firewall_reconciliation    = false
+      + effective_labels                         = {
+          + "goog-terraform-provisioned" = "true"
+        }
+      + emulated_version                         = (known after apply)
+      + enable_cilium_clusterwide_network_policy = false
+      + enable_fqdn_network_policy               = false
+      + enable_intranode_visibility              = (known after apply)
+      + enable_kubernetes_alpha                  = false
+      + enable_l4_ilb_subsetting                 = (known after apply)
+      + enable_legacy_abac                       = false
+      + enable_multi_networking                  = false
+      + enable_shielded_nodes                    = true
+      + endpoint                                 = (known after apply)
+      + id                                       = (known after apply)
+      + initial_node_count                       = 1
+      + label_fingerprint                        = (known after apply)
+      + location                                 = "us-east4-b"
+      + logging_service                          = "logging.googleapis.com/kubernetes"
+      + master_version                           = (known after apply)
+      + min_master_version                       = "1.37.1-gke.3020000"
+      + monitoring_service                       = "monitoring.googleapis.com/kubernetes"
+      + name                                     = "stackdriver-monitoring-tutorial"
+      + network                                  = "default"
+      + networking_mode                          = (known after apply)
+      + node_locations                           = (known after apply)
+      + node_version                             = (known after apply)
+      + operation                                = (known after apply)
+      + private_ipv6_google_access               = (known after apply)
+      + project                                  = (known after apply)
+      + self_link                                = (known after apply)
+      + services_ipv4_cidr                       = (known after apply)
+      + subnetwork                               = (known after apply)
+      + terraform_labels                         = {
+          + "goog-terraform-provisioned" = "true"
+        }
+      + tpu_ipv4_cidr_block                      = (known after apply)
+
+      + addons_config (known after apply)
+
+      + anonymous_authentication_config (known after apply)
+
+      + authenticator_groups_config (known after apply)
+
+      + autopilot_cluster_policy_config (known after apply)
+
+      + cluster_autoscaling (known after apply)
+
+      + confidential_nodes (known after apply)
+
+      + control_plane_endpoints_config (known after apply)
+
+      + cost_management_config (known after apply)
+
+      + database_encryption (known after apply)
+
+      + default_snat_status (known after apply)
+
+      + enterprise_config (known after apply)
+
+      + gateway_api_config (known after apply)
+
+      + gke_auto_upgrade_config (known after apply)
+
+      + identity_service_config (known after apply)
+
+      + ip_allocation_policy {
+          + cluster_ipv4_cidr_block       = (known after apply)
+          + cluster_secondary_range_name  = (known after apply)
+          + services_ipv4_cidr_block      = (known after apply)
+          + services_secondary_range_name = (known after apply)
+          + stack_type                    = "IPV4"
+
+          + auto_ipam_config (known after apply)
+
+          + network_tier_config (known after apply)
+
+          + pod_cidr_overprovision_config (known after apply)
+        }
+
+      + logging_config (known after apply)
+
+      + managed_opentelemetry_config (known after apply)
+
+      + master_auth {
+          + client_certificate     = (known after apply)
+          + client_key             = (sensitive value)
+          + cluster_ca_certificate = (known after apply)
+
+          + client_certificate_config {
+              + issue_client_certificate = false
+            }
+        }
+
+      + master_authorized_networks_config (known after apply)
+
+      + mesh_certificates (known after apply)
+
+      + monitoring_config (known after apply)
+
+      + node_config (known after apply)
+
+      + node_creation_config (known after apply)
+
+      + node_pool (known after apply)
+
+      + node_pool_auto_config (known after apply)
+
+      + node_pool_defaults (known after apply)
+
+      + notification_config (known after apply)
+
+      + pod_autoscaling (known after apply)
+
+      + rbac_binding_config (known after apply)
+
+      + release_channel (known after apply)
+
+      + schedule_upgrade_config (known after apply)
+
+      + security_posture_config (known after apply)
+
+      + service_external_ips_config (known after apply)
+
+      + vertical_pod_autoscaling (known after apply)
+
+      + workload_identity_config (known after apply)
+    }
+
+  # google_monitoring_alert_policy.prometheus_mem_alloc will be created
+  + resource "google_monitoring_alert_policy" "prometheus_mem_alloc" {
+      + combiner        = "OR"
+      + creation_record = (known after apply)
+      + deletion_policy = "DELETE"
+      + display_name    = "Prometheus mem alloc"
+      + enabled         = true
+      + id              = (known after apply)
+      + name            = (known after apply)
+      + project         = "qwiklabs-gcp-02-561a04d854d4"
+
+      + conditions {
+          + display_name = "mem alloc above 12"
+          + name         = (known after apply)
+
+          + condition_threshold {
+              + comparison      = "COMPARISON_GT"
+              + duration        = "60s"
+              + filter          = "metric.type=\"custom.googleapis.com/go_memstats_alloc_bytes\" AND resource.type=\"k8s_container\""
+              + threshold_value = 12
+            }
+        }
+    }
+
+  # google_project_service.container will be created
+  + resource "google_project_service" "container" {
+      + deletion_policy    = "DELETE"
+      + disable_on_destroy = false
+      + id                 = (known after apply)
+      + project            = "qwiklabs-gcp-02-561a04d854d4"
+      + service            = "container.googleapis.com"
+    }
+
+  # google_project_service.logging will be created
+  + resource "google_project_service" "logging" {
+      + deletion_policy    = "DELETE"
+      + disable_on_destroy = false
+      + id                 = (known after apply)
+      + project            = "qwiklabs-gcp-02-561a04d854d4"
+      + service            = "logging.googleapis.com"
+    }
+
+  # google_project_service.monitoring will be created
+  + resource "google_project_service" "monitoring" {
+      + deletion_policy    = "DELETE"
+      + disable_on_destroy = false
+      + id                 = (known after apply)
+      + project            = "qwiklabs-gcp-02-561a04d854d4"
+      + service            = "monitoring.googleapis.com"
+    }
+
+Plan: 5 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + cluster_name     = "stackdriver-monitoring-tutorial"
+  + primary_location = "us-east4-b"
+
+─────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't
+guarantee to take exactly these actions if you run "terraform apply" now.
