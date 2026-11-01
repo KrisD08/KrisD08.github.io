@@ -12,7 +12,7 @@
 # privilegios. La imagen normal de nginx necesita root para abrir el
 # puerto 80 (todo puerto <1024 requiere el privilegio CAP_NET_BIND_SERVICE);
 # usando 8080 evitamos esa necesidad por completo (Reto 3).
-FROM nginxinc/nginx-unprivileged:1.30.5-alpine3.24
+FROM nginxinc/nginx-unprivileged:1.31.7-alpine3.24
 
 # Corrige CVE-2026-111497 (brotli-libs 1.2.0-r1, fix en 1.2.1-r0). Quitar cuando la imagen base ya lo traiga.
 USER 0
