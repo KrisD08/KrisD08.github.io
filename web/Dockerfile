@@ -14,6 +14,11 @@
 # usando 8080 evitamos esa necesidad por completo (Reto 3).
 FROM nginxinc/nginx-unprivileged:1.30.5-alpine3.24
 
+# Corrige CVE-2026-111497 (brotli-libs 1.2.0-r1, fix en 1.2.1-r0). Quitar cuando la imagen base ya lo traiga.
+USER 0
+RUN apk upgrade --no-cache brotli-libs
+USER 101
+
 COPY --chown=nginx:nginx index.html /usr/share/nginx/html/index.html
 COPY --chown=nginx:nginx libro-de-visitas.js /usr/share/nginx/html/libro-de-visitas.js
 COPY web/nginx.conf /etc/nginx/conf.d/default.conf
