@@ -1,0 +1,59 @@
+module.instances.google_compute_instance.tf-instance-2: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-2]
+module.instances.google_compute_instance.tf-instance-1: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-1]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # module.instances.google_compute_instance.tf-instance-1 will be updated in-place
+  ~ resource "google_compute_instance" "tf-instance-1" {
+      + allow_stopping_for_update  = true
+        id                         = "projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-1"
+      ~ metadata                   = {
+          - "startup-script" = <<-EOT
+                #!/bin/bash
+            EOT -> null
+        }
+      + metadata_startup_script    = <<-EOT
+            #!/bin/bash
+        EOT
+        name                       = "tf-instance-1"
+        tags                       = []
+      ~ terraform_labels           = {
+          + "goog-terraform-provisioned" = "true"
+        }
+        # (21 unchanged attributes hidden)
+
+        # (4 unchanged blocks hidden)
+    }
+
+  # module.instances.google_compute_instance.tf-instance-2 will be updated in-place
+  ~ resource "google_compute_instance" "tf-instance-2" {
+      + allow_stopping_for_update  = true
+        id                         = "projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-2"
+      ~ metadata                   = {
+          - "startup-script" = <<-EOT
+                #!/bin/bash
+            EOT -> null
+        }
+      + metadata_startup_script    = <<-EOT
+            #!/bin/bash
+        EOT
+        name                       = "tf-instance-2"
+        tags                       = []
+      ~ terraform_labels           = {
+          + "goog-terraform-provisioned" = "true"
+        }
+        # (21 unchanged attributes hidden)
+
+        # (4 unchanged blocks hidden)
+    }
+
+Plan: 0 to add, 2 to change, 0 to destroy.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't
+guarantee to take exactly these actions if you run "terraform apply" now.

@@ -1,0 +1,8 @@
+module.storage.google_storage_bucket.bucket: Refreshing state... [id=tf-bucket-184521]
+module.instances.google_compute_instance.tf-instance-2: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-2]
+module.instances.google_compute_instance.tf-instance-1: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-1]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration
+and found no differences, so no changes are needed.

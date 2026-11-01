@@ -1,0 +1,53 @@
+module.vpc.module.vpc.google_compute_network.network: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/global/networks/tf-vpc-830600]
+module.storage.google_storage_bucket.bucket: Refreshing state... [id=tf-bucket-184521]
+module.instances.google_compute_instance.tf-instance-1: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-1]
+module.instances.google_compute_instance.tf-instance-2: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-2]
+module.vpc.module.subnets.google_compute_subnetwork.subnetwork["us-east4/subnet-02"]: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/regions/us-east4/subnetworks/subnet-02]
+module.vpc.module.subnets.google_compute_subnetwork.subnetwork["us-east4/subnet-01"]: Refreshing state... [id=projects/qwiklabs-gcp-02-501c5dd15f6e/regions/us-east4/subnetworks/subnet-01]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # module.instances.google_compute_instance.tf-instance-1 will be updated in-place
+  ~ resource "google_compute_instance" "tf-instance-1" {
+        id                         = "projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-1"
+        name                       = "tf-instance-1"
+        tags                       = []
+        # (25 unchanged attributes hidden)
+
+      ~ network_interface {
+            name                        = "nic0"
+          ~ network                     = "https://www.googleapis.com/compute/v1/projects/qwiklabs-gcp-02-501c5dd15f6e/global/networks/default" -> "tf-vpc-830600"
+          ~ subnetwork                  = "https://www.googleapis.com/compute/v1/projects/qwiklabs-gcp-02-501c5dd15f6e/regions/us-east4/subnetworks/default" -> "subnet-01"
+            # (9 unchanged attributes hidden)
+        }
+
+        # (3 unchanged blocks hidden)
+    }
+
+  # module.instances.google_compute_instance.tf-instance-2 will be updated in-place
+  ~ resource "google_compute_instance" "tf-instance-2" {
+        id                         = "projects/qwiklabs-gcp-02-501c5dd15f6e/zones/us-east4-b/instances/tf-instance-2"
+        name                       = "tf-instance-2"
+        tags                       = []
+        # (25 unchanged attributes hidden)
+
+      ~ network_interface {
+            name                        = "nic0"
+          ~ network                     = "https://www.googleapis.com/compute/v1/projects/qwiklabs-gcp-02-501c5dd15f6e/global/networks/default" -> "tf-vpc-830600"
+          ~ subnetwork                  = "https://www.googleapis.com/compute/v1/projects/qwiklabs-gcp-02-501c5dd15f6e/regions/us-east4/subnetworks/default" -> "subnet-02"
+            # (9 unchanged attributes hidden)
+        }
+
+        # (3 unchanged blocks hidden)
+    }
+
+Plan: 0 to add, 2 to change, 0 to destroy.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't
+guarantee to take exactly these actions if you run "terraform apply" now.
